@@ -6,17 +6,17 @@
 window.PORTAL_SYSTEMS = [
   {
     title: "資源教室公告欄",
-    description: "查看重要公告、活動資訊、修課通知與獎助學金。",
+    description: "查看重要公告、修課通知、獎助學金與活動訊息。",
     icon: "📢",
-    url: "請把公告欄網址貼在這裡",
-    enabled: false,
-    status: "請設定網址",
+    url: "https://f00931must-hash.github.io/must-resource-platform/",
+    enabled: true,
+    status: "使用中",
     accent: "#8b5cf6",
     accentSoft: "#f3e8ff"
   },
   {
-    title: "活動報名系統",
-    description: "活動報名、回饋填寫、名單管理與成果統計。",
+    title: "資源教室活動報名平台",
+    description: "查看活動資訊、線上報名與填寫活動回饋。",
     icon: "🎉",
     url: "https://f00931must-hash.github.io/must-activity-system/",
     enabled: true,
