@@ -18,7 +18,7 @@ window.PORTAL_SYSTEMS = [
     title: "資源教室活動報名平台",
     description: "查看活動資訊、線上報名與填寫活動回饋。",
     icon: "🎉",
-    url: "https://f00931must-hash.github.io/must-activity-system/",
+    url: "https://f00931must-hash.github.io/must-activity-system/frontend/",
     enabled: true,
     status: "使用中",
     accent: "#0ea5e9",
