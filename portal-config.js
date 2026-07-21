@@ -25,6 +25,16 @@ window.PORTAL_SYSTEMS = [
     accentSoft: "#e0f2fe"
   },
   {
+    title: "資源教室服務紀錄系統",
+    description: "管理學生基本資料、服務紀錄、AI 內容潤飾與紀錄表匯出。",
+    icon: "📋",
+    url: "https://f00931must-hash.github.io/must-service-record-system/",
+    enabled: true,
+    status: "使用中",
+    accent: "#14b8a6",
+    accentSoft: "#ccfbf1"
+  },
+  {
     title: "資產借用系統",
     description: "設備借用、歸還與庫存查詢。",
     icon: "📦",
