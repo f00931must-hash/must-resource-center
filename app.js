@@ -1,166 +1,39 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
-import { getFirestore, doc, getDoc, getDocs, collection, setDoc, deleteDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const provider = new GoogleAuthProvider();
-provider.setCustomParameters({ prompt: "select_account" });
+const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app),provider=new GoogleAuthProvider();
+provider.setCustomParameters({prompt:"select_account"});
+let currentUser=null,profile=null,systems=[],users=[];
+const $=id=>document.getElementById(id); const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+const defaultSystems=[
+{id:"announcement",name:"資源教室公告欄",description:"查看重要公告、修課通知、獎助學金與活動訊息。",icon:"📢",url:"https://f00931must-hash.github.io/must-resource-platform/",enabled:true,order:1,type:"shared",accent:"#8b5cf6",accentSoft:"#f3e8ff"},
+{id:"activity",name:"資源教室活動報名平台",description:"查看活動資訊、線上報名與填寫活動回饋。",icon:"🎉",url:"https://f00931must-hash.github.io/must-activity-system/frontend/",enabled:true,order:2,type:"shared",accent:"#0ea5e9",accentSoft:"#e0f2fe"},
+{id:"serviceRecord",name:"資源教室服務紀錄系統",description:"管理學生基本資料、服務紀錄、AI 內容潤飾與紀錄表匯出。",icon:"📋",url:"https://f00931must-hash.github.io/must-service-record-system/",enabled:true,order:3,type:"private",accent:"#14b8a6",accentSoft:"#ccfbf1"}
+];
+const manuals={portal:`<h2>入口平台</h2><p>入口平台會依照登入帳號，自動顯示可使用的系統。</p><ol class="steps"><li>點選「使用 Google 登入」。</li><li>選擇已由管理者加入的 Google 帳號。</li><li>從首頁卡片進入需要的系統。</li></ol><div class="note">入口卡片由管理中心維護，日後修改網址或新增系統，不必再更改首頁程式。</div>`,users:`<h2>老師與權限</h2><h3>新增老師</h3><ol class="steps"><li>進入「管理中心」。</li><li>在老師管理按「新增老師」。</li><li>輸入姓名、Email、身分並勾選可使用的系統。</li><li>按儲存。老師即可用該 Google 帳號登入。</li></ol><h3>停用帳號</h3><p>編輯老師後關閉「啟用帳號」。停用後仍保留原設定，但無法登入。</p>`,systems:`<h2>系統管理</h2><ol class="steps"><li>進入「管理中心」的「系統管理」。</li><li>按「新增系統」，填寫名稱、網址、圖示及排序。</li><li>儲存後首頁會自動出現，不需修改 GitHub 程式。</li></ol><div class="note">停用系統只會讓入口暫時隱藏，不會刪除該系統的資料。</div>`,faq:`<h2>常見問題</h2><h3>新增老師後仍無法登入？</h3><p>請確認 Email 完全相同、帳號為啟用狀態，並已在 Firebase Authentication 加入 GitHub Pages 網域。</p><h3>為什麼老師看不到某套系統？</h3><p>請在老師管理中勾選該系統的權限。管理員預設可查看所有啟用中的系統。</p><h3>子系統裡原本的老師管理呢？</h3><p>目前先保留，等下一階段將各子系統改為讀取 Portal 權限後，再移除重複功能。</p>`};
 
-const $ = id => document.getElementById(id);
-const state = { authUser:null, profile:null, systems:[], users:[] };
-const roleLabel = { admin:"最高管理者", teacher:"一般老師", assistant:"協作者" };
-const typeLabel = { shared:"共同管理型", private:"個別資料型", workspace:"工作空間型" };
+function bind(){[$("loginBtn"),$("loginBtnLarge")].forEach(b=>b.onclick=login);$("logoutBtn").onclick=logout;$("deniedLogoutBtn").onclick=logout;document.querySelectorAll(".nav-btn").forEach(b=>b.onclick=()=>showPage(b.dataset.page));document.querySelectorAll(".tab-btn").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));document.querySelectorAll(".manual-link").forEach(b=>b.onclick=()=>showManual(b.dataset.manual));$("addUserBtn").onclick=()=>openUserModal();$("addSystemBtn").onclick=()=>openSystemModal();$("closeModalBtn").onclick=closeModal;$("modal").onclick=e=>{if(e.target===$("modal"))closeModal()};}
+async function login(){try{await signInWithPopup(auth,provider)}catch(e){toast("登入失敗："+friendly(e))}} async function logout(){await signOut(auth)}
+function friendly(e){if(e?.code==="auth/popup-closed-by-user")return "登入視窗已關閉";return e?.message||"請稍後再試"}
 
-$("loginBtn").addEventListener("click", login);
-$("loginPanelBtn").addEventListener("click", login);
-$("logoutBtn").addEventListener("click", () => signOut(auth));
-$("addUserBtn").addEventListener("click", () => openUserDialog());
-$("addSystemBtn").addEventListener("click", () => openSystemDialog());
-$("userForm").addEventListener("submit", saveUser);
-$("systemForm").addEventListener("submit", saveSystem);
-document.querySelectorAll("[data-close]").forEach(btn => btn.addEventListener("click", () => $(btn.dataset.close).close()));
-document.querySelectorAll(".tab").forEach(btn => btn.addEventListener("click", () => showPage(btn.dataset.page)));
-document.querySelectorAll("[data-manual]").forEach(btn => btn.addEventListener("click", () => renderManual(btn.dataset.manual)));
+onAuthStateChanged(auth,async user=>{currentUser=user;try{if(!user){profile=null;showLoggedOut();return}const email=user.email.toLowerCase();const snap=await getDoc(doc(db,"portalUsers",email));if(!snap.exists()||snap.data().enabled===false){showDenied(email);return}profile={id:email,...snap.data()};await Promise.all([loadSystems(),profile.role==="admin"?loadUsers():Promise.resolve()]);showLoggedIn();await updateDoc(doc(db,"portalUsers",email),{lastLoginAt:serverTimestamp()}).catch(()=>{});}catch(e){showDenied(user?.email||"",`讀取權限失敗：${friendly(e)}`)}finally{$("loadingScreen").classList.add("hidden")}});
+function showLoggedOut(){$("loginPage").classList.remove("hidden");$("deniedPage").classList.add("hidden");document.querySelectorAll(".page").forEach(x=>x.classList.add("hidden"));$("mainNav").classList.add("hidden");$("loginBtn").classList.remove("hidden");$("logoutBtn").classList.add("hidden");$("userChip").classList.add("hidden")}
+function showDenied(email,msg){showLoggedOut();$("loginPage").classList.add("hidden");$("deniedPage").classList.remove("hidden");$("deniedMessage").textContent=msg||`帳號 ${email} 尚未加入或已停用，請洽管理者協助。`;$("loginBtn").classList.add("hidden");$("logoutBtn").classList.remove("hidden")}
+function showLoggedIn(){$("loginPage").classList.add("hidden");$("deniedPage").classList.add("hidden");$("mainNav").classList.remove("hidden");$("loginBtn").classList.add("hidden");$("logoutBtn").classList.remove("hidden");$("userChip").classList.remove("hidden");const name=profile.displayName||currentUser.displayName||profile.email;$("userName").textContent=name;$("userRole").textContent=profile.role==="admin"?"最高管理者":"一般老師";$("userAvatar").textContent=name.slice(0,1);$("welcomeTitle").textContent=`${name}老師，您好！`;$("adminNavBtn").classList.toggle("hidden",profile.role!=="admin");renderSystems();renderAdmin();showPage("home")}
+function showPage(page){document.querySelectorAll(".page").forEach(x=>x.classList.add("hidden"));$(page+"Page")?.classList.remove("hidden");document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.page===page));if(page==="manual")showManual("portal")}
+function showTab(tab){$("usersTab").classList.toggle("hidden",tab!=="users");$("systemsTab").classList.toggle("hidden",tab!=="systems");document.querySelectorAll(".tab-btn").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab))}
+function showManual(key){$("manualContent").innerHTML=manuals[key]||manuals.portal;document.querySelectorAll(".manual-link").forEach(b=>b.classList.toggle("active",b.dataset.manual===key))}
 
-async function login(){
-  try { await signInWithPopup(auth, provider); }
-  catch (error) { showMessage(firebaseError(error), "error"); }
-}
-
-onAuthStateChanged(auth, async user => {
-  resetMessage();
-  state.authUser = user;
-  if(!user){ showLoggedOut(); return; }
-  try{
-    const email = normalizeEmail(user.email);
-    const snap = await getDoc(doc(db, "portalUsers", email));
-    if(!snap.exists()) throw new Error("此 Google 帳號尚未加入 Portal 使用者名單。");
-    const profile = snap.data();
-    if(profile.enabled !== true) throw new Error("此帳號目前已停用，請洽系統管理者。");
-    state.profile = { ...profile, email };
-    await loadSystems();
-    showLoggedIn();
-  }catch(error){
-    showMessage(error.message || "登入驗證失敗。", "error");
-    await signOut(auth);
-  }
-});
-
-function showLoggedOut(){
-  state.profile = null; state.systems = []; state.users = [];
-  $("loginPanel").classList.remove("hidden"); $("appContent").classList.add("hidden");
-  $("loginBtn").classList.remove("hidden"); $("logoutBtn").classList.add("hidden"); $("userInfo").classList.add("hidden");
-}
-function showLoggedIn(){
-  $("loginPanel").classList.add("hidden"); $("appContent").classList.remove("hidden");
-  $("loginBtn").classList.add("hidden"); $("logoutBtn").classList.remove("hidden");
-  $("userInfo").classList.remove("hidden");
-  $("userInfo").innerHTML = `<strong>${escapeHtml(state.profile.displayName || state.authUser.displayName || "使用者")}</strong><span>${escapeHtml(roleLabel[state.profile.role] || state.profile.role || "使用者")}</span>`;
-  const isAdmin = state.profile.role === "admin";
-  $("adminTab").classList.toggle("hidden", !isAdmin);
-  renderHome(); renderManual("start"); showPage("home");
-}
-
-async function loadSystems(){
-  const snap = await getDocs(query(collection(db, "systems"), orderBy("order", "asc")));
-  state.systems = snap.docs.map(d => ({ id:d.id, ...d.data() }));
-}
-
-function accessibleSystems(){
-  const admin = state.profile?.role === "admin";
-  const permissions = state.profile?.permissions || {};
-  return state.systems.filter(s => s.enabled === true && (admin || permissions[s.id] === true));
-}
-function renderHome(){
-  const systems = accessibleSystems();
-  $("systemCount").textContent = `${systems.length} 個系統可使用`;
-  $("emptySystems").classList.toggle("hidden", systems.length > 0);
-  $("systemGrid").innerHTML = systems.map(s => {
-    const usable = Boolean(s.url);
-    const tag = usable ? "a" : "div";
-    return `<${tag} class="system-card ${usable ? "" : "disabled"}" ${usable ? `href="${escapeAttr(s.url)}" target="_blank" rel="noopener"` : ""}>
-      <div class="card-top"><div class="icon">${escapeHtml(s.icon || "🔗")}</div><span class="status ${usable ? "" : "soon"}">${usable ? "使用中" : "尚未設定網址"}</span></div>
-      <h2>${escapeHtml(s.name || s.id)}</h2><p>${escapeHtml(s.description || typeLabel[s.type] || "")}</p><div class="enter">${usable ? "進入系統 →" : "請管理者設定"}</div>
-    </${tag}>`;
-  }).join("");
-}
-
-function showPage(page){
-  if(page === "admin" && state.profile?.role !== "admin") return;
-  document.querySelectorAll(".page").forEach(p => p.classList.toggle("active", p.id === `page-${page}`));
-  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.page === page));
-  if(page === "admin") loadAdminData();
-}
-async function loadAdminData(){
-  try{
-    const usersSnap = await getDocs(collection(db, "portalUsers"));
-    state.users = usersSnap.docs.map(d => ({ id:d.id, ...d.data() })).sort((a,b)=>(a.displayName||a.email).localeCompare(b.displayName||b.email,"zh-Hant"));
-    await loadSystems(); renderUsersTable(); renderSystemsTable(); renderHome();
-  }catch(error){ showMessage(firebaseError(error), "error"); }
-}
-function renderUsersTable(){
-  $("usersTable").innerHTML = state.users.map(u => {
-    const labels = state.systems.filter(s => u.permissions?.[s.id]).map(s => s.name || s.id);
-    return `<tr><td>${escapeHtml(u.displayName||"")}</td><td>${escapeHtml(u.email||u.id)}</td><td>${escapeHtml(roleLabel[u.role]||u.role||"")}</td><td><span class="pill ${u.enabled===true?"on":"off"}">${u.enabled===true?"啟用":"停用"}</span></td><td>${escapeHtml(labels.join("、") || (u.role==="admin"?"全部系統":"尚未設定"))}</td><td><button class="link-btn" data-edit-user="${escapeAttr(u.id)}">修改</button></td></tr>`;
-  }).join("");
-  document.querySelectorAll("[data-edit-user]").forEach(b => b.addEventListener("click", () => openUserDialog(state.users.find(u=>u.id===b.dataset.editUser))));
-}
-function renderSystemsTable(){
-  $("systemsTable").innerHTML = state.systems.map(s => `<tr><td>${Number(s.order ?? 99)}</td><td><strong>${escapeHtml(s.icon||"🔗")} ${escapeHtml(s.name||s.id)}</strong><br><small>${escapeHtml(s.id)}</small></td><td>${escapeHtml(typeLabel[s.type]||s.type||"")}</td><td><span class="pill ${s.enabled===true?"on":"off"}">${s.enabled===true?"啟用":"停用"}</span></td><td class="url-cell">${escapeHtml(s.url||"未設定")}</td><td><button class="link-btn" data-edit-system="${escapeAttr(s.id)}">修改</button></td></tr>`).join("");
-  document.querySelectorAll("[data-edit-system]").forEach(b => b.addEventListener("click", () => openSystemDialog(state.systems.find(s=>s.id===b.dataset.editSystem))));
-}
-
-function openUserDialog(user=null){
-  $("userForm").reset(); $("originalUserEmail").value = user?.id || "";
-  $("userDialogTitle").textContent = user ? "修改使用者" : "新增使用者";
-  $("userName").value = user?.displayName || ""; $("userEmail").value = user?.email || user?.id || ""; $("userEmail").disabled = Boolean(user);
-  $("userRole").value = user?.role || "teacher"; $("userEnabled").checked = user ? user.enabled===true : true;
-  $("permissionChecks").innerHTML = state.systems.map(s => `<label class="check-line"><input type="checkbox" value="${escapeAttr(s.id)}" ${user?.permissions?.[s.id] ? "checked" : ""}> ${escapeHtml(s.name||s.id)}</label>`).join("");
-  $("userDialog").showModal();
-}
-async function saveUser(event){
-  event.preventDefault();
-  const original = $("originalUserEmail").value;
-  const email = normalizeEmail(original || $("userEmail").value);
-  if(!email) return;
-  const permissions = {};
-  $("permissionChecks").querySelectorAll("input[type=checkbox]").forEach(c => permissions[c.value] = c.checked);
-  try{
-    await setDoc(doc(db,"portalUsers",email), { displayName:$("userName").value.trim(), email, role:$("userRole").value, enabled:$("userEnabled").checked, permissions, updatedAt:serverTimestamp(), updatedBy:state.profile.email }, { merge:true });
-    $("userDialog").close(); showMessage("使用者資料已儲存。", "success"); await loadAdminData();
-  }catch(error){ showMessage(firebaseError(error), "error"); }
-}
-
-function openSystemDialog(system=null){
-  $("systemForm").reset(); $("originalSystemId").value = system?.id || "";
-  $("systemDialogTitle").textContent = system ? "修改系統" : "新增系統"; $("systemId").disabled = Boolean(system);
-  $("systemId").value=system?.id||""; $("systemName").value=system?.name||""; $("systemDescription").value=system?.description||""; $("systemIcon").value=system?.icon||""; $("systemOrder").value=system?.order??99; $("systemType").value=system?.type||"shared"; $("systemUrl").value=system?.url||""; $("systemEnabled").checked=system?system.enabled===true:true;
-  $("systemDialog").showModal();
-}
-async function saveSystem(event){
-  event.preventDefault();
-  const id = ($("originalSystemId").value || $("systemId").value).trim();
-  try{
-    await setDoc(doc(db,"systems",id), { name:$("systemName").value.trim(), description:$("systemDescription").value.trim(), icon:$("systemIcon").value.trim()||"🔗", order:Number($("systemOrder").value||99), type:$("systemType").value, url:$("systemUrl").value.trim(), enabled:$("systemEnabled").checked, updatedAt:serverTimestamp(), updatedBy:state.profile.email }, { merge:true });
-    $("systemDialog").close(); showMessage("系統資料已儲存。", "success"); await loadAdminData();
-  }catch(error){ showMessage(firebaseError(error), "error"); }
-}
-
-const manuals = {
-  start:`<h2>開始使用</h2><p>使用學校或已授權的 Google 帳號登入。登入後，首頁只會顯示你可使用的系統；最高管理者會多看到「系統管理中心」。</p><div class="manual-note">日常管理都在 Portal 完成。除非首次建立 Firebase、修改安全規則或處理故障，平常不需要進 Firebase 或 GitHub。</div>`,
-  users:`<h2>新增與停用老師</h2><ol><li>進入「系統管理中心」。</li><li>在「老師與使用者管理」按「新增使用者」。</li><li>填寫姓名、Email、角色與系統權限後儲存。</li><li>老師離職或暫停使用時，按「修改」並取消「啟用帳號」，不必刪除紀錄。</li></ol>`,
-  permissions:`<h2>設定系統權限</h2><p>新增或修改使用者時，勾選他可以進入的系統。最高管理者預設可管理與進入全部系統；一般老師與協作者只會看到已勾選的系統。</p><p>這裡管理的是「能不能進入系統」。進去後能看到哪些資料，仍由各系統自己的資料模式與安全規則決定。</p>`,
-  systems:`<h2>新增或修改系統</h2><ol><li>在「系統模組管理」按「新增系統」。</li><li>填寫英文系統代碼、名稱、首頁網址、排序與資料類型。</li><li>儲存後，新系統會自動出現在權限勾選清單與首頁。</li><li>系統維修或尚未完成時，可取消「顯示並允許進入」。</li></ol>`,
-  types:`<h2>共同型與個別型</h2><p><strong>共同管理型（shared）</strong>：公告、活動等，授權老師進入後共同看到與管理全部資料。</p><p><strong>個別資料型（private）</strong>：服務紀錄等，每位老師只看到自己的資料。</p><p><strong>工作空間型（workspace）</strong>：主要老師可指定小幫手或其他老師共同處理特定工作空間。</p><div class="manual-note">Portal 的類型欄位是管理標示；真正的資料隔離仍必須在各系統的 Firestore Security Rules 實作。</div>`,
-  trouble:`<h2>常見問題</h2><h3>登入後顯示未授權</h3><p>確認該 Google Email 已加入 portalUsers，且「啟用帳號」為開啟。</p><h3>新增系統後沒有出現在首頁</h3><p>確認系統為啟用，並且該使用者已被勾選此系統權限；最高管理者則會直接看到所有啟用系統。</p><h3>出現 Missing or insufficient permissions</h3><p>通常代表 Firestore 安全規則尚未更新，請依 README 上傳本版 firestore.rules。</p>`
-};
-function renderManual(key){ document.querySelectorAll("[data-manual]").forEach(b=>b.classList.toggle("active",b.dataset.manual===key)); $("manualContent").innerHTML=manuals[key]||manuals.start; }
-function showMessage(text,type="info"){ const m=$("message"); m.textContent=text; m.className=`message ${type}`; m.classList.remove("hidden"); window.scrollTo({top:0,behavior:"smooth"}); }
-function resetMessage(){ $("message").classList.add("hidden"); }
-function normalizeEmail(v){ return String(v||"").trim().toLowerCase(); }
-function escapeHtml(v){ return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c])); }
-function escapeAttr(v){ return escapeHtml(v).replace(/`/g,"&#096;"); }
-function firebaseError(error){ console.error(error); if(error?.code==="auth/popup-blocked") return "瀏覽器阻擋了登入視窗，請允許彈出式視窗後重試。"; if(error?.code==="auth/unauthorized-domain") return "Firebase 尚未授權此網站網域，請將 GitHub Pages 網域加入 Authentication 的 Authorized domains。"; if(error?.code==="permission-denied"||String(error?.message).includes("permissions")) return "Firestore 權限不足，請確認已套用本版安全規則。"; return error?.message||"操作失敗，請稍後再試。"; }
+async function loadSystems(){let snap=await getDocs(query(collection(db,"systems"),orderBy("order"))).catch(()=>null);systems=snap?.docs.map(d=>({id:d.id,...d.data()}))||[];if(!systems.length&&profile?.role==="admin"){for(const s of defaultSystems)await setDoc(doc(db,"systems",s.id),{...s,createdAt:serverTimestamp()});systems=[...defaultSystems]}}
+async function loadUsers(){const snap=await getDocs(collection(db,"portalUsers"));users=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.displayName||a.id).localeCompare(b.displayName||b.id,"zh-Hant"))}
+function canUse(s){if(!s.enabled)return false;if(profile.role==="admin")return true;const p=profile.permissions||{};const a=profile.allowedSystems||[];return p[s.id]===true||a.includes(s.id)||s.type==="shared"&&profile.allShared===true}
+function renderSystems(){const list=systems.filter(canUse);$("systemCount").textContent=`${list.length} 個系統可使用`;$("systemGrid").innerHTML=list.map(s=>`<a class="system-card" href="${esc(s.url)}" target="_blank" rel="noopener" style="--accent:${esc(s.accent||"#3b82f6")};--accent-soft:${esc(s.accentSoft||"#eff6ff")}"><div class="card-top"><div class="icon">${esc(s.icon||"🔗")}</div><span class="status">使用中</span></div><h2>${esc(s.name||s.title||"未命名系統")}</h2><p>${esc(s.description||"")}</p><div class="enter">進入系統 →</div></a>`).join("");$("emptySystems").classList.toggle("hidden",list.length>0)}
+function renderAdmin(){if(profile?.role!=="admin")return;$("usersList").innerHTML=users.map(u=>{const allowed=systems.filter(s=>(u.permissions||{})[s.id]||u.role==="admin").map(s=>s.name);return `<div class="admin-row"><div><h4>${esc(u.displayName||u.id)} ${u.role==="admin"?"👑":""}</h4><p>${esc(u.email||u.id)}｜${u.enabled===false?"已停用":"使用中"}</p><div class="row-tags">${allowed.slice(0,5).map(x=>`<span class="tag">${esc(x)}</span>`).join("")||'<span class="tag off">未設定系統</span>'}</div></div><div class="row-actions"><button class="mini-btn" data-edit-user="${esc(u.id)}">編輯</button></div></div>`}).join("");$("systemsList").innerHTML=systems.map(s=>`<div class="admin-row"><div><h4>${esc(s.icon||"🔗")} ${esc(s.name)}</h4><p>${esc(s.url||"尚未設定網址")}｜排序 ${esc(s.order??0)}｜${s.enabled===false?"已停用":"使用中"}</p></div><div class="row-actions"><button class="mini-btn" data-edit-system="${esc(s.id)}">編輯</button></div></div>`).join("");document.querySelectorAll("[data-edit-user]").forEach(b=>b.onclick=()=>openUserModal(users.find(x=>x.id===b.dataset.editUser)));document.querySelectorAll("[data-edit-system]").forEach(b=>b.onclick=()=>openSystemModal(systems.find(x=>x.id===b.dataset.editSystem)))}
+function openUserModal(u=null){$("modalTitle").textContent=u?"編輯老師":"新增老師";$("modalForm").innerHTML=`<div class="field"><label>姓名</label><input name="displayName" required value="${esc(u?.displayName||"")}"></div><div class="field"><label>Email</label><input name="email" type="email" required ${u?"readonly":""} value="${esc(u?.email||u?.id||"")}"></div><div class="field"><label>身分</label><select name="role"><option value="teacher" ${u?.role!=="admin"?"selected":""}>一般老師</option><option value="admin" ${u?.role==="admin"?"selected":""}>最高管理者</option></select></div><div class="field"><label>可使用的系統</label><div class="checkbox-grid">${systems.map(s=>`<label class="check-card"><input type="checkbox" name="perm" value="${esc(s.id)}" ${(u?.permissions||{})[s.id]||u?.role==="admin"?"checked":""}> ${esc(s.icon)} ${esc(s.name)}</label>`).join("")}</div></div><label class="check-card"><input type="checkbox" name="enabled" ${u?.enabled!==false?"checked":""}> 啟用帳號</label><div class="form-actions"><button type="button" class="btn ghost" id="cancelForm">取消</button><button class="btn primary">儲存</button></div>`;$("modalForm").onsubmit=e=>saveUser(e,u);$("cancelForm").onclick=closeModal;$("modal").classList.remove("hidden")}
+async function saveUser(e,u){e.preventDefault();const f=new FormData(e.target),email=String(f.get("email")).trim().toLowerCase(),perms={};f.getAll("perm").forEach(id=>perms[id]=true);try{await setDoc(doc(db,"portalUsers",email),{displayName:String(f.get("displayName")).trim(),email,role:f.get("role"),enabled:f.get("enabled")==="on",permissions:perms,updatedAt:serverTimestamp(),...(u?{}:{createdAt:serverTimestamp()})},{merge:true});await loadUsers();renderAdmin();closeModal();toast("老師資料已儲存")}catch(err){toast("儲存失敗："+friendly(err))}}
+function openSystemModal(s=null){$("modalTitle").textContent=s?"編輯系統":"新增系統";$("modalForm").innerHTML=`<div class="field"><label>系統代碼（英文，不可重複）</label><input name="id" required ${s?"readonly":""} value="${esc(s?.id||"")}" placeholder="例如 isp"></div><div class="field"><label>系統名稱</label><input name="name" required value="${esc(s?.name||"")}"></div><div class="field"><label>說明</label><textarea name="description">${esc(s?.description||"")}</textarea></div><div class="field"><label>網址</label><input name="url" type="url" required value="${esc(s?.url||"")}"></div><div class="checkbox-grid"><div class="field"><label>圖示</label><input name="icon" value="${esc(s?.icon||"🔗")}"></div><div class="field"><label>排序</label><input name="order" type="number" value="${esc(s?.order??systems.length+1)}"></div></div><div class="field"><label>類型</label><select name="type"><option value="shared" ${s?.type==="shared"?"selected":""}>共同系統</option><option value="private" ${s?.type!=="shared"?"selected":""}>個別權限系統</option></select></div><label class="check-card"><input type="checkbox" name="enabled" ${s?.enabled!==false?"checked":""}> 啟用系統</label><div class="form-actions"><button type="button" class="btn ghost" id="cancelForm">取消</button><button class="btn primary">儲存</button></div>`;$("modalForm").onsubmit=e=>saveSystem(e,s);$("cancelForm").onclick=closeModal;$("modal").classList.remove("hidden")}
+async function saveSystem(e,s){e.preventDefault();const f=new FormData(e.target),id=String(f.get("id")).trim();try{await setDoc(doc(db,"systems",id),{name:String(f.get("name")).trim(),description:String(f.get("description")).trim(),url:String(f.get("url")).trim(),icon:String(f.get("icon")).trim()||"🔗",order:Number(f.get("order"))||0,type:f.get("type"),enabled:f.get("enabled")==="on",updatedAt:serverTimestamp(),...(s?{}:{createdAt:serverTimestamp()})},{merge:true});await loadSystems();renderSystems();renderAdmin();closeModal();toast("系統資料已儲存")}catch(err){toast("儲存失敗："+friendly(err))}}
+function closeModal(){$("modal").classList.add("hidden");$("modalForm").innerHTML=""}function toast(msg){$("toast").textContent=msg;$("toast").classList.remove("hidden");clearTimeout(window.__toast);window.__toast=setTimeout(()=>$("toast").classList.add("hidden"),3000)}
+bind();

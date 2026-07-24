@@ -1,67 +1,27 @@
-# MUST Resource Center Portal v2.0.0
+# 明新科技大學資源教室行政平台 Portal v2.0.0
 
-本版包含：
-
+## 已完成
 - Google 登入
-- `portalUsers` 使用者驗證
-- 依權限動態顯示 `systems`
-- 最高管理者專用系統管理中心
-- 新增／修改／停用使用者
-- 設定每位使用者可進入哪些系統
-- 新增／修改／停用未來系統與表單
+- 依 portalUsers 判斷帳號與權限
+- 從 Firestore systems 動態建立首頁卡片
+- 管理中心：老師新增、停用、權限設定
+- 管理中心：系統新增、修改、排序、啟停
 - 內建操作手冊
-- Firestore 安全規則
+- 保留原版淺藍、圓角卡片風格並加強版面
 
-## 第一次部署步驟
+## 第一次部署
+1. Firebase Authentication → Settings → Authorized domains，加入 GitHub Pages 網域。
+2. Firestore Database → Rules，貼上 `firestore.rules` 全部內容並 Publish。
+3. 將本資料夾所有檔案上傳到原本 `must-resource-center` GitHub Repository。
 
-### 1. Firebase Authentication 授權 GitHub Pages 網域
+## Firestore 必要資料
+`portalUsers/master004400@gmail.com`
+- displayName: 文志
+- email: master004400@gmail.com
+- enabled: true
+- role: admin
 
-Firebase Console → Authentication → Settings → Authorized domains → Add domain
+`systems` 若為空，最高管理者第一次登入時會自動建立公告、活動、服務紀錄三個入口。
 
-加入：
-
-`f00931must-hash.github.io`
-
-### 2. 套用 Firestore 安全規則
-
-Firebase Console → Firestore Database → Rules
-
-將專案內 `firestore.rules` 的全部內容貼上並按「Publish」。
-
-> 請先確認 `portalUsers/master004400@gmail.com` 已存在，且 `enabled=true`、`role=admin`。
-
-### 3. 上傳 GitHub
-
-將本資料夾內所有檔案上傳到 `must-resource-center` Repository 最外層，覆蓋同名檔案：
-
-- index.html
-- style.css
-- app.js
-- firebase-config.js
-- firestore.rules
-- README.md
-
-舊的 `portal-config.js` 本版已不再使用，可以保留也可以刪除。
-
-### 4. 測試
-
-開啟 GitHub Pages 網址並以 `master004400@gmail.com` 登入。
-
-登入後應看到：
-
-- 系統首頁
-- 系統管理中心
-- 操作手冊
-
-## 現有 Firestore 資料
-
-`systems` 內現有文件至少需要：
-
-- `name`：string
-- `enabled`：boolean
-- `type`：string（shared / private / workspace）
-- `icon`：string
-- `order`：number
-- `url`：string
-
-`description` 可以之後直接在 Portal 管理中心補上。
+## 注意
+子系統目前尚未改為讀取 Portal 權限，因此公告、活動、服務紀錄內原本的「老師管理」暫時仍有效。下一階段會逐一改造後再移除。

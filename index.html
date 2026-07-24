@@ -4,10 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>明新科技大學｜資源教室行政平台</title>
-  <meta name="description" content="明新科技大學資源教室行政平台與系統管理中心">
+  <meta name="description" content="明新科技大學資源教室行政平台入口網站">
   <link rel="stylesheet" href="./style.css?v=2.0.0">
 </head>
 <body>
+  <div id="loadingScreen" class="loading-screen">
+    <div class="loading-logo">M</div><div class="spinner"></div><p>正在載入資源教室行政平台…</p>
+  </div>
+
   <div class="page-shell">
     <header class="hero">
       <div class="brand-row">
@@ -15,126 +19,89 @@
         <div>
           <div class="eyebrow">Minghsin University of Science and Technology</div>
           <h1>資源教室行政平台</h1>
-          <p>公告、活動、服務紀錄與各項行政工具的統一入口</p>
+          <p>公告、活動報名與各項行政工具的統一入口</p>
         </div>
       </div>
-      <div class="user-area">
-        <div id="userInfo" class="user-info hidden"></div>
+      <div class="header-actions">
+        <div id="userChip" class="user-chip hidden">
+          <div id="userAvatar" class="avatar">師</div>
+          <div><strong id="userName">老師</strong><span id="userRole">一般使用者</span></div>
+        </div>
         <button id="loginBtn" class="btn primary">使用 Google 登入</button>
         <button id="logoutBtn" class="btn ghost hidden">登出</button>
       </div>
     </header>
 
-    <div id="message" class="message hidden" role="status"></div>
+    <nav id="mainNav" class="main-nav hidden" aria-label="主要功能">
+      <button class="nav-btn active" data-page="home">🏠 系統首頁</button>
+      <button id="adminNavBtn" class="nav-btn admin-only hidden" data-page="admin">⚙️ 管理中心</button>
+      <button class="nav-btn" data-page="manual">📖 操作手冊</button>
+    </nav>
 
     <main>
-      <section id="loginPanel" class="login-panel">
-        <div class="login-icon">🔐</div>
+      <section id="loginPage" class="login-panel">
+        <div class="login-art">🔐</div>
         <h2>請先登入</h2>
-        <p>本平台僅供已授權的資源教室老師與協作者使用。</p>
-        <button id="loginPanelBtn" class="btn primary">使用 Google 登入</button>
+        <p>使用已加入資源教室平台的 Google 帳號登入，即可查看您有權限使用的系統。</p>
+        <button id="loginBtnLarge" class="btn primary large">使用 Google 帳號登入</button>
       </section>
 
-      <div id="appContent" class="hidden">
-        <nav class="tabs" aria-label="主要功能">
-          <button class="tab active" data-page="home">🏠 系統首頁</button>
-          <button id="adminTab" class="tab hidden" data-page="admin">⚙️ 系統管理中心</button>
-          <button class="tab" data-page="manual">📖 操作手冊</button>
-        </nav>
+      <section id="deniedPage" class="login-panel hidden">
+        <div class="login-art">⛔</div><h2>尚未開通使用權限</h2>
+        <p id="deniedMessage">此帳號尚未加入資源教室行政平台，請洽管理者協助。</p>
+        <button id="deniedLogoutBtn" class="btn ghost">換一個帳號登入</button>
+      </section>
 
-        <section id="page-home" class="page active">
-          <section class="notice">
-            <div>
-              <strong>快速入口</strong>
-              <span>只會顯示你目前有權限使用的系統。</span>
-            </div>
-            <div id="systemCount" class="count-badge"></div>
-          </section>
-          <section id="systemGrid" class="system-grid" aria-label="系統入口"></section>
-          <div id="emptySystems" class="empty hidden">目前沒有可使用的系統，請洽系統管理者。</div>
+      <section id="homePage" class="page hidden">
+        <section class="welcome-card">
+          <div><span class="welcome-label">WELCOME BACK</span><h2 id="welcomeTitle">老師，您好！</h2><p>以下為您目前可使用的行政系統。</p></div>
+          <div class="welcome-deco">✦</div>
         </section>
-
-        <section id="page-admin" class="page">
-          <div class="admin-header">
-            <div>
-              <h2>系統管理中心</h2>
-              <p>日常新增老師、調整權限或修改系統入口，都在這裡完成。</p>
-            </div>
-          </div>
-
-          <div class="admin-grid">
-            <section class="panel">
-              <div class="panel-title-row">
-                <div><h3>老師與使用者管理</h3><p>設定帳號、角色、啟用狀態與各系統權限。</p></div>
-                <button id="addUserBtn" class="btn primary small">＋ 新增使用者</button>
-              </div>
-              <div class="table-wrap"><table><thead><tr><th>姓名</th><th>Email</th><th>角色</th><th>狀態</th><th>系統權限</th><th>操作</th></tr></thead><tbody id="usersTable"></tbody></table></div>
-            </section>
-
-            <section class="panel">
-              <div class="panel-title-row">
-                <div><h3>系統模組管理</h3><p>新增未來表單、修改網址、排序或暫停入口。</p></div>
-                <button id="addSystemBtn" class="btn primary small">＋ 新增系統</button>
-              </div>
-              <div class="table-wrap"><table><thead><tr><th>排序</th><th>系統</th><th>類型</th><th>狀態</th><th>網址</th><th>操作</th></tr></thead><tbody id="systemsTable"></tbody></table></div>
-            </section>
-          </div>
+        <section class="notice">
+          <div><strong>快速入口</strong><span>點選下方卡片即可進入各系統。</span></div>
+          <div id="systemCount" class="count-badge"></div>
         </section>
+        <section id="systemGrid" class="system-grid" aria-label="系統入口"></section>
+        <section id="emptySystems" class="empty-state hidden">目前沒有可使用的系統，請洽管理者調整權限。</section>
+      </section>
 
-        <section id="page-manual" class="page">
-          <div class="manual-layout">
-            <aside class="manual-nav">
-              <button data-manual="start" class="active">開始使用</button>
-              <button data-manual="users">新增與停用老師</button>
-              <button data-manual="permissions">設定系統權限</button>
-              <button data-manual="systems">新增或修改系統</button>
-              <button data-manual="types">共同型與個別型</button>
-              <button data-manual="trouble">常見問題</button>
-            </aside>
-            <article id="manualContent" class="manual-content"></article>
-          </div>
-        </section>
-      </div>
+      <section id="adminPage" class="page hidden">
+        <div class="section-heading"><div><span class="welcome-label">ADMIN CENTER</span><h2>系統管理中心</h2><p>日常管理在這裡完成，不必再進入 Firebase 修改資料。</p></div></div>
+        <div class="admin-tabs">
+          <button class="tab-btn active" data-tab="users">👥 老師管理</button>
+          <button class="tab-btn" data-tab="systems">🧩 系統管理</button>
+        </div>
+        <div id="usersTab" class="tab-panel">
+          <div class="panel-toolbar"><div><h3>老師帳號</h3><p>新增、停用帳號，並設定可使用的系統。</p></div><button id="addUserBtn" class="btn primary">＋ 新增老師</button></div>
+          <div id="usersList" class="admin-list"></div>
+        </div>
+        <div id="systemsTab" class="tab-panel hidden">
+          <div class="panel-toolbar"><div><h3>系統入口</h3><p>新增系統、修改網址、排序或暫停使用。</p></div><button id="addSystemBtn" class="btn primary">＋ 新增系統</button></div>
+          <div id="systemsList" class="admin-list"></div>
+        </div>
+      </section>
+
+      <section id="manualPage" class="page hidden">
+        <div class="section-heading"><div><span class="welcome-label">USER GUIDE</span><h2>操作手冊</h2><p>常用操作整理在平台內，交接時也能直接查看。</p></div></div>
+        <div class="manual-layout">
+          <aside class="manual-menu">
+            <button class="manual-link active" data-manual="portal">入口平台</button>
+            <button class="manual-link" data-manual="users">老師與權限</button>
+            <button class="manual-link" data-manual="systems">系統管理</button>
+            <button class="manual-link" data-manual="faq">常見問題</button>
+          </aside>
+          <article id="manualContent" class="manual-content"></article>
+        </div>
+      </section>
     </main>
 
-    <footer>
-      <span>明新科技大學｜學務處健康與諮商中心資源教室</span>
-      <span>Portal v2.0.0</span>
-    </footer>
+    <footer><span>明新科技大學｜學務處健康與諮商中心資源教室</span><span>Portal v2.0.0</span></footer>
   </div>
 
-  <dialog id="userDialog" class="dialog">
-    <form id="userForm" method="dialog">
-      <div class="dialog-head"><h3 id="userDialogTitle">新增使用者</h3><button type="button" class="icon-btn" data-close="userDialog">✕</button></div>
-      <input type="hidden" id="originalUserEmail">
-      <label>姓名<input id="userName" required maxlength="40"></label>
-      <label>Email<input id="userEmail" type="email" required></label>
-      <div class="form-row">
-        <label>角色<select id="userRole"><option value="teacher">一般老師</option><option value="assistant">協作者</option><option value="admin">最高管理者</option></select></label>
-        <label class="check-line"><input id="userEnabled" type="checkbox" checked> 啟用帳號</label>
-      </div>
-      <fieldset><legend>可使用的系統</legend><div id="permissionChecks" class="check-grid"></div></fieldset>
-      <div class="dialog-actions"><button type="button" class="btn ghost" data-close="userDialog">取消</button><button class="btn primary" value="save">儲存</button></div>
-    </form>
-  </dialog>
-
-  <dialog id="systemDialog" class="dialog">
-    <form id="systemForm" method="dialog">
-      <div class="dialog-head"><h3 id="systemDialogTitle">新增系統</h3><button type="button" class="icon-btn" data-close="systemDialog">✕</button></div>
-      <input type="hidden" id="originalSystemId">
-      <label>系統代碼（英文，不可重複）<input id="systemId" required pattern="[A-Za-z0-9_-]+" placeholder="例如 isp"></label>
-      <label>系統名稱<input id="systemName" required maxlength="50"></label>
-      <label>系統說明<textarea id="systemDescription" rows="2" maxlength="120"></textarea></label>
-      <div class="form-row three">
-        <label>圖示<input id="systemIcon" maxlength="8" placeholder="例如 📢"></label>
-        <label>排序<input id="systemOrder" type="number" min="0" step="1" value="99"></label>
-        <label>資料類型<select id="systemType"><option value="shared">共同管理型</option><option value="private">個別資料型</option><option value="workspace">工作空間型</option></select></label>
-      </div>
-      <label>系統首頁網址<input id="systemUrl" type="url" placeholder="https://..."></label>
-      <label class="check-line"><input id="systemEnabled" type="checkbox" checked> 顯示並允許進入</label>
-      <div class="dialog-actions"><button type="button" class="btn ghost" data-close="systemDialog">取消</button><button class="btn primary" value="save">儲存</button></div>
-    </form>
-  </dialog>
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card"><div class="modal-header"><h3 id="modalTitle">編輯</h3><button id="closeModalBtn" class="icon-btn">×</button></div><form id="modalForm" class="modal-body"></form></div>
+  </div>
+  <div id="toast" class="toast hidden"></div>
 
   <script type="module" src="./app.js?v=2.0.0"></script>
 </body>
