@@ -17,3 +17,14 @@ export const announcementFirebaseConfig = {
   messagingSenderId: "802749583025",
   appId: "1:802749583025:web:f98067ddca6aa2b321dc90"
 };
+
+
+// 活動平台 Firebase：供 Portal 同步活動後台權限。
+export const activityFirebaseConfig = {
+  apiKey: "AIzaSyDjrdWAzIKcrClSdH8hlcmVgjQDR0K62hg",
+  authDomain: "must-activity-form.firebaseapp.com",
+  projectId: "must-activity-form",
+  storageBucket: "must-activity-form.firebasestorage.app",
+  messagingSenderId: "581585861025",
+  appId: "1:581585861025:web:f897a5fffbf5c0113eb3e0"
+};
