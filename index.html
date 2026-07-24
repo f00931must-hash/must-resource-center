@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>明新科技大學｜資源教室行政平台</title>
   <meta name="description" content="明新科技大學資源教室行政平台入口網站">
-  <link rel="stylesheet" href="./style.css?v=2.0.0">
+  <link rel="stylesheet" href="./style.css?v=2.1.0">
 </head>
 <body>
   <div id="loadingScreen" class="loading-screen">
@@ -35,7 +35,7 @@
     <nav id="mainNav" class="main-nav hidden" aria-label="主要功能">
       <button class="nav-btn active" data-page="home">🏠 系統首頁</button>
       <button id="adminNavBtn" class="nav-btn admin-only hidden" data-page="admin">⚙️ 管理中心</button>
-      <button class="nav-btn" data-page="manual">📖 操作手冊</button>
+      <button id="manualNavBtn" class="nav-btn admin-only hidden" data-page="manual">📖 操作手冊</button>
     </nav>
 
     <main>
@@ -73,6 +73,10 @@
         </div>
         <div id="usersTab" class="tab-panel">
           <div class="panel-toolbar"><div><h3>老師帳號</h3><p>新增、停用帳號，並設定可使用的系統。</p></div><button id="addUserBtn" class="btn primary">＋ 新增老師</button></div>
+          <div class="sync-panel">
+            <div><h3>公告平台權限同步</h3><p>Portal 儲存老師權限後，按一次同步，即可讓公告平台後台立即套用。</p><div id="announcementSyncStatus" class="sync-status">尚未同步</div></div>
+            <button id="syncAnnouncementBtn" class="btn primary">🔄 同步公告權限</button>
+          </div>
           <div id="usersList" class="admin-list"></div>
         </div>
         <div id="systemsTab" class="tab-panel hidden">
@@ -95,7 +99,7 @@
       </section>
     </main>
 
-    <footer><span>明新科技大學｜學務處健康與諮商中心資源教室</span><span>Portal v2.0.0</span></footer>
+    <footer><span>明新科技大學｜學務處健康與諮商中心資源教室</span><span>Portal v2.1.0</span></footer>
   </div>
 
   <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
@@ -103,6 +107,6 @@
   </div>
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="./app.js?v=2.0.0"></script>
+  <script type="module" src="./app.js?v=2.1.0"></script>
 </body>
 </html>
