@@ -1,18 +1,17 @@
-# 資源教室行政平台 Portal v2.2.0
+# MUST Resource Center Portal v3.0.0
 
-## 本版更新
-- 修正老師編輯視窗的系統權限排版，不再顯示 `campaign`、`event` 等程式代碼。
-- 新增「我的小幫手」：老師可自行新增、編輯、停用自己的小幫手。
-- 小幫手只能取得該老師本身已有的系統權限。
-- 新增活動平台權限同步。
-- 操作手冊與管理中心仍只對最高管理者顯示。
+## 本版新增
+- 服務紀錄權限同步：同步個管老師與協作者到 `settings/serviceAccess`。
+- 一鍵同步公告、活動、服務紀錄三套系統。
+- 系統監控中心：即時讀取公開 GitHub Repository 容量、版本及最後更新時間。
+- 權限代碼相容：`campaign/announcement`、`event/activity`、`folder_shared/serviceRecord`。
+- 身分顯示改為系統管理員、個管老師、協作者。
 
-## 上線方式
-1. 將本資料夾所有檔案覆蓋上傳至 `must-resource-center`。
-2. 將 `firestore.rules` 貼到 Portal Firebase 的 Firestore Rules 並發布。
-3. 最高管理者登入 Portal，在管理中心依序按「同步公告權限」與「同步活動權限」。
+## 上線前必要步驟
+1. 上傳 Portal 全部檔案。
+2. 發布 Portal 的 `firestore.rules`（本版規則與 v2.2 相同）。
+3. 服務紀錄系統需使用隨附的 v1.0.4 規則，並在目前管理者的 `authorizedTeachers/{uid}` 增加 `role: admin`。
+4. 回 Portal 按「同步服務」，第一次會要求登入服務紀錄 Firebase。
 
-## 日常操作
-- 老師與小幫手的權限都在 Portal 設定。
-- 權限異動後，最高管理者需按對應系統的同步按鈕。
-- 不需到子系統新增老師。
+## 容量說明
+GitHub 容量可透過公開 API 讀取。Firestore 跨專案精準儲存容量無法由純前端安全取得，因此畫面明確標示「需後端串接」，不使用假數字。

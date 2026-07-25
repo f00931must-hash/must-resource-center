@@ -28,3 +28,14 @@ export const activityFirebaseConfig = {
   messagingSenderId: "581585861025",
   appId: "1:581585861025:web:f897a5fffbf5c0113eb3e0"
 };
+
+
+// 服務紀錄 Firebase：供 Portal 同步個管老師與協作者權限。
+export const serviceRecordFirebaseConfig = {
+  apiKey: "AIzaSyB3rVyZb9VzDgQ90CQmLF_JXlM-wDskGxE",
+  authDomain: "must-service-record-system.firebaseapp.com",
+  projectId: "must-service-record-system",
+  storageBucket: "must-service-record-system.firebasestorage.app",
+  messagingSenderId: "1066337913135",
+  appId: "1:1066337913135:web:3080eb1e05b176de77b9da"
+};
