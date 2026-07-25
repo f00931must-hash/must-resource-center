@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp, query, orderBy } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
 import { firebaseConfig, announcementFirebaseConfig, activityFirebaseConfig, serviceRecordFirebaseConfig } from "./firebase-config.js";
 
 const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app),provider=new GoogleAuthProvider();
@@ -23,7 +23,7 @@ const defaultSystems=[
 ];
 const manuals={portal:`<h2>入口平台</h2><p>入口平台會依照登入帳號，自動顯示可使用的系統。</p><ol class="steps"><li>點選「使用 Google 登入」。</li><li>選擇已由管理者加入的 Google 帳號。</li><li>從首頁卡片進入需要的系統。</li></ol><div class="note">入口卡片由管理中心維護，日後修改網址或新增系統，不必再更改首頁程式。</div>`,users:`<h2>老師與權限</h2><h3>新增老師</h3><ol class="steps"><li>進入「管理中心」。</li><li>在老師管理按「新增老師」。</li><li>輸入姓名、Email、身分並勾選可使用的系統。</li><li>按儲存。老師即可用該 Google 帳號登入。</li></ol><h3>停用帳號</h3><p>編輯老師後關閉「啟用帳號」。停用後仍保留原設定，但無法登入。</p>`,systems:`<h2>系統管理</h2><ol class="steps"><li>進入「管理中心」的「系統管理」。</li><li>按「新增系統」，填寫名稱、網址、圖示及排序。</li><li>儲存後首頁會自動出現，不需修改 GitHub 程式。</li></ol><div class="note">停用系統只會讓入口暫時隱藏，不會刪除該系統的資料。</div>`,faq:`<h2>常見問題</h2><h3>新增老師後仍無法登入？</h3><p>請確認 Email 完全相同、帳號為啟用狀態，並已在 Firebase Authentication 加入 GitHub Pages 網域。</p><h3>為什麼老師看不到某套系統？</h3><p>請在老師管理中勾選該系統的權限。管理員預設可查看所有啟用中的系統。</p><h3>子系統裡原本的老師管理呢？</h3><p>目前先保留，等下一階段將各子系統改為讀取 Portal 權限後，再移除重複功能。</p>`};
 
-function bind(){[$("loginBtn"),$("loginBtnLarge")].forEach(b=>b.onclick=login);$("logoutBtn").onclick=logout;$("deniedLogoutBtn").onclick=logout;document.querySelectorAll(".nav-btn").forEach(b=>b.onclick=()=>showPage(b.dataset.page));document.querySelectorAll(".tab-btn").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));document.querySelectorAll(".manual-link").forEach(b=>b.onclick=()=>showManual(b.dataset.manual));$("addUserBtn").onclick=()=>openUserModal();$("addSystemBtn").onclick=()=>openSystemModal();$("syncAnnouncementBtn").onclick=syncAnnouncementPermissions;$("syncActivityBtn").onclick=syncActivityPermissions;$("syncServiceBtn").onclick=syncServicePermissions;$("syncAllBtn").onclick=syncAllPermissions;$("refreshMonitorBtn").onclick=renderMonitor;$("addAssistantBtn").onclick=()=>openAssistantModal();$("closeModalBtn").onclick=closeModal;$("modal").onclick=e=>{if(e.target===$("modal"))closeModal()};}
+function bind(){[$("loginBtn"),$("loginBtnLarge")].forEach(b=>b.onclick=login);$("logoutBtn").onclick=logout;$("deniedLogoutBtn").onclick=logout;document.querySelectorAll(".nav-btn").forEach(b=>b.onclick=()=>showPage(b.dataset.page));document.querySelectorAll(".tab-btn").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));document.querySelectorAll(".manual-link").forEach(b=>b.onclick=()=>showManual(b.dataset.manual));$("addUserBtn").onclick=()=>openUserModal();$("addSystemBtn").onclick=()=>openSystemModal();$("syncAnnouncementBtn").onclick=syncAnnouncementPermissions;$("syncActivityBtn").onclick=syncActivityPermissions;$("syncServiceBtn").onclick=syncServicePermissions;$("syncAllBtn").onclick=syncAllPermissions;$("refreshMonitorBtn").onclick=renderMonitor;$("addAssistantBtn").onclick=()=>openAssistantModal();$("syncMyAssistantsBtn").onclick=syncMyAssistants;$("closeModalBtn").onclick=closeModal;$("modal").onclick=e=>{if(e.target===$("modal"))closeModal()};}
 async function login(){try{await signInWithPopup(auth,provider)}catch(e){toast("登入失敗："+friendly(e))}} async function logout(){await signOut(auth)}
 function friendly(e){if(e?.code==="auth/popup-closed-by-user")return "登入視窗已關閉";return e?.message||"請稍後再試"}
 
@@ -154,6 +154,39 @@ async function syncActivityPermissions({silent=false}={}){
 
 function serviceAllowed(u){if(u.enabled===false)return false;if(u.role==="admin")return true;return hasPermission(u,"folder_shared")||hasPermission(u,"serviceRecord")}
 function setServiceSyncStatus(text,cls=""){const el=$("serviceSyncStatus");if(!el)return;el.textContent=text;el.className=`sync-status ${cls}`.trim();}
+async function syncMyAssistants(){
+  if(profile?.role==="assistant")return;
+  const btn=$("syncMyAssistantsBtn");
+  const owner=currentEmail();
+  try{
+    btn.disabled=true;btn.textContent="同步中…";
+    let childUser=serviceAuth.currentUser;
+    if(!childUser)childUser=(await signInWithPopup(serviceAuth,serviceProvider)).user;
+    if(normalizedEmail(childUser.email)!==owner){
+      await signOut(serviceAuth);
+      throw new Error("Portal 與服務紀錄登入帳號不同，請使用同一個個管老師帳號。");
+    }
+    await loadUsers();
+    const mine=users.filter(u=>u.role==="assistant"&&normalizedEmail(u.ownerEmail)===owner);
+    const permitted=mine.filter(u=>u.enabled!==false&&serviceAllowed(u));
+    const expected=new Set(permitted.map(u=>normalizedEmail(u.email||u.id)));
+
+    // 清除已取消服務紀錄權限或已刪除的所屬協作者。
+    const oldSnap=await getDocs(query(collection(serviceDb,"serviceAssistants"),where("ownerEmail","==",owner)));
+    for(const old of oldSnap.docs){if(!expected.has(normalizedEmail(old.id)))await deleteDoc(old.ref);}
+
+    for(const u of permitted){
+      const email=normalizedEmail(u.email||u.id);
+      await setDoc(doc(serviceDb,"serviceAssistants",email),{
+        email,displayName:u.displayName||email,name:u.displayName||email,
+        role:"assistant",ownerEmail:owner,enabled:true,source:"portal-self-sync",updatedAt:serverTimestamp()
+      },{merge:false});
+    }
+    toast(`已同步 ${permitted.length} 位協作者至服務紀錄`);
+  }catch(err){console.error(err);toast("協作者同步失敗："+friendly(err));}
+  finally{btn.disabled=false;btn.textContent="🔄 同步我的協作者";}
+}
+
 async function syncServicePermissions({silent=false}={}){
   if(profile?.role!=="admin")throw new Error("只有系統管理員可以同步權限");const btn=$("syncServiceBtn");
   try{btn.disabled=true;btn.textContent="同步中…";setServiceSyncStatus("請登入服務紀錄 Firebase","warn");let childUser=serviceAuth.currentUser;if(!childUser)childUser=(await signInWithPopup(serviceAuth,serviceProvider)).user;if(String(childUser.email||"").toLowerCase()!==String(currentUser.email||"").toLowerCase()){await signOut(serviceAuth);throw new Error("Portal 與服務紀錄登入帳號不同，請使用同一個系統管理員帳號。");}await loadUsers();const permitted=users.filter(serviceAllowed);const userMap={};permitted.forEach(u=>{const email=String(u.email||u.id).toLowerCase();userMap[email]={email,displayName:u.displayName||email,name:u.displayName||email,enabled:u.enabled!==false,role:u.role==="assistant"?"assistant":u.role==="admin"?"admin":"teacher",ownerEmail:u.role==="assistant"?normalizedEmail(u.ownerEmail):email,source:"portal"};});await setDoc(doc(serviceDb,"settings","serviceAccess"),{users:userMap,updatedAt:serverTimestamp(),syncedFrom:"must-resource-center-portal"},{merge:false});setServiceSyncStatus(`同步完成：${permitted.length} 位可使用服務紀錄`,'ok');if(!silent)toast("服務紀錄權限已同步");return true;}catch(err){console.error(err);setServiceSyncStatus("同步失敗："+friendly(err)+"（請確認已發布 v1.0.5 服務紀錄規則）","error");if(!silent)toast("同步失敗："+friendly(err));throw err;}finally{btn.disabled=false;btn.textContent="同步服務";}
