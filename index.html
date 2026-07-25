@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>明新科技大學｜資源教室行政平台</title>
   <meta name="description" content="明新科技大學資源教室行政平台入口網站">
-  <link rel="stylesheet" href="./style.css?v=3.0.0">
+  <link rel="stylesheet" href="./style.css?v=3.1.0">
 </head>
 <body>
   <div id="loadingScreen" class="loading-screen">
@@ -93,9 +93,9 @@
           <div id="systemsList" class="admin-list"></div>
         </div>
         <div id="monitorTab" class="tab-panel hidden">
-          <div class="panel-toolbar"><div><h3>系統監控中心</h3><p>GitHub 容量為即時 Repository 容量；Firestore 精準容量需後端權限，因此不顯示推測數字。</p></div><button id="refreshMonitorBtn" class="btn primary">↻ 重新整理</button></div>
+          <div class="panel-toolbar"><div><h3>系統監控中心</h3><p>GitHub 容量為即時 Repository 容量；GitHub Repository 容量可直接讀取；Firestore 精準容量目前無法由純前端安全取得。</p></div><button id="refreshMonitorBtn" class="btn primary">↻ 重新整理</button></div>
           <div id="monitorGrid" class="monitor-grid"></div>
-          <div class="monitor-note">GitHub 容量以 1000 MB 作為入口提醒基準；這不是 GitHub 的強制上限。Firestore 免費額度為 1 GiB，但純前端無法安全讀取跨專案的精準已用容量。</div>
+          <div class="monitor-note">GitHub 容量以 1000 MB 作為入口提醒基準；這不是 GitHub 的強制上限。Firestore 容量未顯示不是故障；待日後加入受保護的後端統計後即可呈現。</div>
         </div>
       </section>
 
@@ -113,7 +113,7 @@
       </section>
     </main>
 
-    <footer><span>明新科技大學｜學務處健康與諮商中心資源教室</span><span>Portal v3.0.0</span></footer>
+    <footer><span>明新科技大學｜學務處健康與諮商中心資源教室</span><span>Portal v3.1.0</span></footer>
   </div>
 
   <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
@@ -121,6 +121,6 @@
   </div>
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="./app.js?v=3.0.0"></script>
+  <script type="module" src="./app.js?v=3.1.0"></script>
 </body>
 </html>
