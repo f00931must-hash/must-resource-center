@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>明新科技大學｜資源教室行政平台</title>
   <meta name="description" content="明新科技大學資源教室行政平台入口網站">
-  <link rel="stylesheet" href="./style.css?v=3.1.0">
+  <link rel="stylesheet" href="./style.css?v=3.2.0">
 </head>
 <body>
   <div id="loadingScreen" class="loading-screen">
@@ -36,6 +36,7 @@
       <button class="nav-btn active" data-page="home">🏠 系統首頁</button>
       <button id="assistantNavBtn" class="nav-btn hidden" data-page="assistants">🧑‍💼 我的小幫手</button>
       <button id="adminNavBtn" class="nav-btn admin-only hidden" data-page="admin">⚙️ 管理中心</button>
+      <button id="resourcesNavBtn" class="nav-btn admin-only hidden" data-page="resources">🗂️ 資料管理</button>
       <button id="manualNavBtn" class="nav-btn admin-only hidden" data-page="manual">📖 操作手冊</button>
     </nav>
 
@@ -99,6 +100,23 @@
         </div>
       </section>
 
+
+      <section id="resourcesPage" class="page hidden">
+        <div class="section-heading"><div><span class="welcome-label">RESOURCE CENTER</span><h2>資料管理與容量控管</h2><p>統一查看公告與活動系統上傳到 GitHub Assets 的圖片及附件。</p></div></div>
+        <div class="resource-summary">
+          <article><span>目前用量</span><strong id="assetUsed">讀取中…</strong></article>
+          <article><span>檔案數量</span><strong id="assetCount">—</strong></article>
+          <article><span>圖片</span><strong id="assetImageCount">—</strong></article>
+          <article><span>附件</span><strong id="assetAttachmentCount">—</strong></article>
+        </div>
+        <div class="tab-panel">
+          <div class="panel-toolbar resource-toolbar"><div><h3>共用檔案庫</h3><p>刪除後，仍引用該網址的公告或活動可能無法顯示，請先確認再刪除。</p></div><button id="refreshResourcesBtn" class="btn primary">↻ 重新整理</button></div>
+          <div class="resource-filters"><input id="resourceSearch" placeholder="搜尋檔名或路徑"><select id="resourceSystem"><option value="">全部系統</option><option value="announcement">公告</option><option value="activity">活動</option><option value="shared">共用</option></select><select id="resourceType"><option value="">全部類型</option><option value="image">圖片</option><option value="attachment">附件</option></select></div>
+          <div id="resourceStatus" class="sync-status">尚未讀取</div>
+          <div id="resourceList" class="resource-list"></div>
+        </div>
+      </section>
+
       <section id="manualPage" class="page hidden">
         <div class="section-heading"><div><span class="welcome-label">USER GUIDE</span><h2>操作手冊</h2><p>常用操作整理在平台內，交接時也能直接查看。</p></div></div>
         <div class="manual-layout">
@@ -113,7 +131,7 @@
       </section>
     </main>
 
-    <footer><span>明新科技大學｜學務處健康與諮商中心資源教室</span><span>Portal v3.1.0</span></footer>
+    <footer><span>明新科技大學｜學務處健康與諮商中心資源教室</span><span>Portal v3.2.0</span></footer>
   </div>
 
   <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
@@ -121,6 +139,6 @@
   </div>
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="./app.js?v=3.1.0"></script>
+  <script type="module" src="./app.js?v=3.2.0"></script>
 </body>
 </html>
