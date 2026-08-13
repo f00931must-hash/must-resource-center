@@ -1,159 +1,145 @@
-<!doctype html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>新生ISP總表</title><link rel="stylesheet" href="style.css?v=1.0.4"><script src="https://unpkg.com/pizzip@3.2.0/dist/pizzip.js"></script><script src="https://unpkg.com/docxtemplater@3.69.3/build/docxtemplater.js"></script><script src="https://unpkg.com/file-saver@1.3.8/FileSaver.js"></script></head><body>
-<div id="loginView" class="center-card"><h1>行政表單製作入口</h1><p>明新科技大學 資源教室</p><button id="loginBtn" class="primary">使用 Google 登入</button></div>
-<div id="deniedView" class="center-card hidden"><h1>尚未開通使用權限</h1><p id="deniedMessage">此帳號尚未由資源教室行政平台開通行政文書權限。</p><button id="deniedLogoutBtn" class="secondary">換一個帳號登入</button></div>
-<div id="appView" class="app hidden"><aside class="sidebar"><h2>行政文書</h2><button class="nav active" data-view="home">📄 表單製作入口</button><button class="nav" data-view="mine">🗂️ 新生ISP總表</button><div class="spacer"></div><div id="userEmail" class="user-email"></div><button id="logoutBtn" class="nav danger">登出</button></aside><main class="main">
-<section id="home" class="page"><div class="page-head"><div><h1>行政表單製作入口</h1><p>選擇要製作的行政文書。</p></div></div><div class="form-grid"><article class="form-card"><span class="badge">新生優先</span><h3>新生ISP總表</h3><button id="newIspBtn" class="primary">建立 ISP</button></article><article class="form-card muted"><span class="badge">未來擴充</span><h3>其他行政文書</h3><p>後續可加入 ITP、會議紀錄、需求調查表等。</p></article></div></section>
-<section id="mine" class="page hidden"><div class="page-head"><div><h1>新生ISP總表</h1><p>顯示目前工作區的新生 ISP 總表。</p></div><label class="sort-control">排序方式<select id="ispSort"><option value="admission-desc">入學年：新到舊</option><option value="admission-asc">入學年：舊到新</option><option value="created-desc">新增順序：新到舊</option><option value="created-asc">新增順序：舊到新</option></select></label></div><div id="docList" class="doc-list"></div></section>
-<section id="ispEditor" class="page hidden"><div class="page-head sticky-head"><div><h1>新生ISP總表</h1><p>v1.0｜正式版</p></div><button id="backBtn" class="secondary">返回</button></div>
-<form id="ispForm" class="editor-card official-form"><input type="hidden" id="docId">
-<h2>壹、基本資料與能力描述</h2>
-<h3>一、學生基本資料</h3>
-<div class="official-section">
-  <div class="official-grid cols-4">
-    <label>填表日期（民國年）<input name="fillDate" type="text" inputmode="numeric" placeholder="例如：115/08/12" data-roc-date></label>
-    <label>姓名<input name="studentName" required></label>
-    <fieldset class="compact"><legend>性別</legend><div class="checks"><label><input type="radio" name="gender" value="男">男</label><label><input type="radio" name="gender" value="女">女</label></div></fieldset>
-    <label>生日（民國年）<input name="birthday" type="text" inputmode="numeric" placeholder="例如：94/03/15" data-roc-date></label>
-    <label class="span-2">身分證字號<input name="nationalId"></label>
-    <fieldset class="span-2 compact"><legend>學制</legend><div class="checks"><label><input type="radio" name="schoolSystem" value="大學部">大學部</label><label><input type="radio" name="schoolSystem" value="研究所碩士班">研究所碩士班</label><label><input type="radio" name="schoolSystem" value="進修部">進修部</label><label><input type="radio" name="schoolSystem" value="其他">其他</label></div><label>其他<input name="schoolSystemOther"></label></fieldset>
-    <label>科系<input name="department"></label><label>學號<input name="studentId"></label><label>入學時間（民國年）<input name="admissionDate" type="text" inputmode="numeric" placeholder="例如：115/09/01" data-roc-date></label><label>血型<input name="bloodType"></label>
-    <label>離校時間（民國年，由輔導人員填寫）<input name="leaveDate" type="text" inputmode="numeric" placeholder="例如：119/06/30" data-roc-date></label><label class="span-2">E-mail<input name="email" type="email"></label>
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>明新科技大學｜資源教室行政平台</title>
+  <meta name="description" content="明新科技大學資源教室行政平台入口網站">
+  <link rel="stylesheet" href="./style.css?v=3.2.1">
+</head>
+<body>
+  <div id="loadingScreen" class="loading-screen">
+    <div class="loading-logo">M</div><div class="spinner"></div><p>正在載入資源教室行政平台…</p>
   </div>
-  <fieldset class="compact"><legend>入學方式</legend><div class="checks"><label><input type="radio" name="admissionMethod" value="一般入學考試">一般入學考試</label><label><input type="radio" name="admissionMethod" value="身心障礙甄試">身心障礙甄試</label><label><input type="radio" name="admissionMethod" value="推薦甄選">推薦甄選</label><label><input type="radio" name="admissionMethod" value="轉學考">轉學考</label><label><input type="radio" name="admissionMethod" value="其他">其他</label></div><label>其他說明<input name="admissionMethodOther"></label></fieldset>
-  <fieldset class="compact"><legend>住址／就學期間通訊</legend><div class="checks"><label><input type="radio" name="livingType" value="自家">自家</label><label><input type="radio" name="livingType" value="校舍">校舍</label><label><input type="radio" name="livingType" value="外宿">外宿</label><label><input type="radio" name="livingType" value="其他">其他</label></div><label>通訊地址<input name="mailingAddress"></label><div class="checks"><label><input type="checkbox" name="registeredSame" value="是">戶籍同上</label></div><label>戶籍地址<input name="registeredAddress"></label></fieldset>
-  <div class="official-grid cols-3"><label>寢電／外宿<input name="dormPhone"></label><label>住宅電話<input name="homePhone"></label><label>手機<input name="mobile"></label></div>
 
-  <fieldset><legend>身心障礙手冊（證明）／其他證明</legend>
-    <div class="checks"><label><input type="radio" name="disabilityCertificate" value="有">有</label><label><input type="radio" name="disabilityCertificate" value="無">無</label></div>
-    <div class="official-grid cols-3"><label>手冊記載類別<input name="certificateCategory"></label><label>程度<input name="certificateLevel"></label><label>ICD<input name="icd"></label><label>鑑定日期（民國年）<input name="assessmentDate" type="text" inputmode="numeric" placeholder="例如：115/05/20" data-roc-date></label><label>重新鑑定日期（民國年）<input name="reassessmentDate" type="text" inputmode="numeric" placeholder="例如：118/05/20" data-roc-date></label></div>
-    <div class="checks"><label><input type="checkbox" name="otherCertificate" value="鑑輔會證明">鑑輔會證明</label><label><input type="checkbox" name="otherCertificate" value="醫院診斷證明">醫院診斷證明</label></div>
-    <div class="official-grid cols-3"><label>證書編號<input name="certificateNo"></label><label>障別<input name="disabilityType"></label><label>醫院診斷證明最近文號<input name="hospitalDocNo"></label></div>
-  </fieldset>
-  <label>障礙特徵<textarea name="disabilityFeatures" rows="3"></textarea></label>
-  <fieldset class="compact"><legend>致障時間</legend><div class="checks"><label><input type="radio" name="onsetType" value="先天">先天</label><label><input type="radio" name="onsetType" value="後天">後天</label></div><label>後天致障年齡（歲）<input name="onsetAge"></label></fieldset>
-  <div class="official-grid cols-2"><label>平時就診醫院<input name="hospital"></label><label>主治醫師<input name="doctor"></label></div>
-  <label>致障原因<textarea name="disabilityCause" rows="2"></textarea></label><label>治療經過<textarea name="treatmentHistory" rows="2"></textarea></label><label>障礙現況（目前復原情形？身體健康狀況？繼續接受治療？）<textarea name="currentDisabilityStatus" rows="3"></textarea></label>
-</div>
+  <div class="page-shell">
+    <header class="hero">
+      <div class="brand-row">
+        <div class="logo">M</div>
+        <div>
+          <div class="eyebrow">Minghsin University of Science and Technology</div>
+          <h1>資源教室行政平台</h1>
+          <p>公告、活動、服務紀錄與行政工具的統一控制中心</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div id="userChip" class="user-chip hidden">
+          <div id="userAvatar" class="avatar">師</div>
+          <div><strong id="userName">老師</strong><span id="userRole">一般使用者</span></div>
+        </div>
+        <button id="loginBtn" class="btn primary">使用 Google 登入</button>
+        <button id="logoutBtn" class="btn ghost hidden">登出</button>
+      </div>
+    </header>
 
-<h3>身體狀況／健康檢查</h3>
-<div class="official-section">
-  <div class="official-grid cols-4"><label>身高（公分）<input name="height"></label><label>體重（公斤）<input name="weight"></label><label>裸視左（度）<input name="visionRawLeft"></label><label>裸視右（度）<input name="visionRawRight"></label><label>矯正後左（度）<input name="visionCorrectedLeft"></label><label>矯正後右（度）<input name="visionCorrectedRight"></label><label>裸耳左（dB）<input name="hearingRawLeft"></label><label>裸耳右（dB）<input name="hearingRawRight"></label></div>
-  <fieldset class="compact"><legend>聽力輔具</legend><div class="checks"><label><input type="checkbox" name="hearingDevice" value="助聽器">助聽器</label><label><input type="checkbox" name="hearingDevice" value="人工電子耳">人工電子耳</label></div><div class="official-grid cols-2"><label>左（dB）<input name="hearingAidLeft"></label><label>右（dB）<input name="hearingAidRight"></label></div></fieldset>
-</div>
+    <nav id="mainNav" class="main-nav hidden" aria-label="主要功能">
+      <button class="nav-btn active" data-page="home">🏠 系統首頁</button>
+      <button id="assistantNavBtn" class="nav-btn hidden" data-page="assistants">🧑‍💼 我的小幫手</button>
+      <button id="adminNavBtn" class="nav-btn admin-only hidden" data-page="admin">⚙️ 管理中心</button>
+      <button id="resourcesNavBtn" class="nav-btn admin-only hidden" data-page="resources">🗂️ 資料管理</button>
+      <button id="manualNavBtn" class="nav-btn admin-only hidden" data-page="manual">📖 操作手冊</button>
+    </nav>
 
-<fieldset class="official-fieldset"><legend>能力狀況</legend>
-  <div class="choice-row"><strong>體力</strong><div class="checks"><label><input type="checkbox" name="physicalStrength" value="舉">舉</label><label><input type="checkbox" name="physicalStrength" value="扔">扔</label><label><input type="checkbox" name="physicalStrength" value="推">推</label><label><input type="checkbox" name="physicalStrength" value="拉">拉</label><label><input type="checkbox" name="physicalStrength" value="抓">抓</label><label><input type="checkbox" name="physicalStrength" value="握">握</label></div></div>
-  <div class="choice-row"><strong>姿態</strong><div class="checks"><label><input type="checkbox" name="posture" value="彎腰">彎腰</label><label><input type="checkbox" name="posture" value="跪蹲">跪蹲</label><label><input type="checkbox" name="posture" value="匍匐">匍匐</label><label><input type="checkbox" name="posture" value="平衡">平衡</label></div></div>
-  <div class="choice-row"><strong>行動</strong><div class="checks"><label><input type="checkbox" name="mobility" value="行走">行走</label><label><input type="checkbox" name="mobility" value="坐">坐</label><label><input type="checkbox" name="mobility" value="立">立</label><label><input type="checkbox" name="mobility" value="攀登">攀登</label><label><input type="checkbox" name="mobility" value="爬行">爬行</label><label><input type="checkbox" name="mobility" value="手指運轉">手指運轉</label></div></div>
-  <div class="choice-row"><strong>溝通</strong><div class="checks"><label><input type="checkbox" name="communication" value="口語">口語</label><label><input type="checkbox" name="communication" value="國語">國語</label><label><input type="checkbox" name="communication" value="台語">台語</label><label><input type="checkbox" name="communication" value="客語">客語</label><label><input type="checkbox" name="communication" value="手語">手語</label><label><input type="checkbox" name="communication" value="讀唇">讀唇</label><label><input type="checkbox" name="communication" value="筆談">筆談</label><label><input type="checkbox" name="communication" value="其他">其他</label></div><label>其他<input name="communicationOther"></label></div>
-  <div class="choice-row"><strong>定向</strong><div class="checks"><label><input type="radio" name="orientation" value="能迅速正確辨別方位">能迅速正確辨別方位</label><label><input type="radio" name="orientation" value="方位辨別遲緩">方位辨別遲緩</label><label><input type="radio" name="orientation" value="不能辨別方位">不能辨別方位</label></div></div>
-  <div class="choice-row"><strong>動作能力</strong><div class="checks"><label><input type="checkbox" name="motorAbility" value="粗大動作">粗大動作</label><label><input type="checkbox" name="motorAbility" value="精細動作">精細動作</label><label><input type="checkbox" name="motorAbility" value="協調動作">協調動作</label></div></div>
-  <div class="choice-row"><strong>反應狀況</strong><div class="checks"><label><input type="radio" name="reaction" value="反應靈敏">反應靈敏</label><label><input type="radio" name="reaction" value="反應尚可">反應尚可</label><label><input type="radio" name="reaction" value="反應遲緩">反應遲緩</label></div></div>
-  <div class="choice-row"><strong>是否需要輔具</strong><div class="checks"><label><input type="radio" name="needAssistiveDevice" value="否">否</label><label><input type="radio" name="needAssistiveDevice" value="是">是</label></div><label>何種輔具<input name="assistiveDeviceType"></label></div>
-</fieldset>
+    <main>
+      <section id="loginPage" class="login-panel">
+        <div class="login-art">🔐</div>
+        <h2>請先登入</h2>
+        <p>使用已加入資源教室平台的 Google 帳號登入，即可查看您有權限使用的系統。</p>
+        <button id="loginBtnLarge" class="btn primary large">使用 Google 帳號登入</button>
+      </section>
 
-<fieldset class="official-fieldset"><legend>緊急聯絡人</legend><div class="official-grid cols-3"><label>姓名<input name="emergencyName"></label><label>關係<input name="emergencyRelation"></label><label>手機<input name="emergencyMobile"></label><label>公司電話<input name="emergencyCompanyPhone"></label><label>住家電話<input name="emergencyHomePhone"></label><label>E-mail<input name="emergencyEmail"></label></div><div class="checks"><label><input type="radio" name="emergencyAddressType" value="同戶籍">同戶籍</label><label><input type="radio" name="emergencyAddressType" value="公司">公司</label><label><input type="radio" name="emergencyAddressType" value="其他">其他</label></div><label>住址<input name="emergencyAddress"></label></fieldset>
+      <section id="deniedPage" class="login-panel hidden">
+        <div class="login-art">⛔</div><h2>尚未開通使用權限</h2>
+        <p id="deniedMessage">此帳號尚未加入資源教室行政平台，請洽管理者協助。</p>
+        <button id="deniedLogoutBtn" class="btn ghost">換一個帳號登入</button>
+      </section>
 
-<fieldset class="official-fieldset"><legend>特殊才能／專長</legend><div class="checks"><label><input type="checkbox" name="talents" value="唱歌">唱歌</label><label><input type="checkbox" name="talents" value="樂器">樂器</label><label><input type="checkbox" name="talents" value="舞蹈">舞蹈</label><label><input type="checkbox" name="talents" value="運動">運動</label><label><input type="checkbox" name="talents" value="美演">美演</label><label><input type="checkbox" name="talents" value="語言">語言</label><label><input type="checkbox" name="talents" value="手工藝">手工藝</label><label><input type="checkbox" name="talents" value="機械">機械</label><label><input type="checkbox" name="talents" value="網頁設計">網頁設計</label><label><input type="checkbox" name="talents" value="撰寫程式">撰寫程式</label><label><input type="checkbox" name="talents" value="文藝創作">文藝創作</label><label><input type="checkbox" name="talents" value="手語翻譯">手語翻譯</label><label><input type="checkbox" name="talents" value="表演">表演</label><label><input type="checkbox" name="talents" value="其他">其他</label></div><label>其他／補充<input name="talentsOther"></label></fieldset>
+      <section id="homePage" class="page hidden">
+        <section class="welcome-card">
+          <div><span class="welcome-label">WELCOME BACK</span><h2 id="welcomeTitle">老師，您好！</h2><p>以下為您目前可使用的行政系統。</p></div>
+          <div class="welcome-deco">✦</div>
+        </section>
+        <section class="notice">
+          <div><strong>快速入口</strong><span>點選下方卡片即可進入各系統。</span></div>
+          <div id="systemCount" class="count-badge"></div>
+        </section>
+        <section id="systemGrid" class="system-grid" aria-label="系統入口"></section>
+        <section id="emptySystems" class="empty-state hidden">目前沒有可使用的系統，請洽管理者調整權限。</section>
+      </section>
 
-<h3>學經歷</h3>
-<div class="official-section"><div class="table-wrap"><table class="entry-table"><thead><tr><th>階段</th><th>學校／機構</th><th>修業時間</th><th>教育型態</th><th>備註</th></tr></thead><tbody><tr><td>高中（職）</td><td><input name="highSchool"></td><td><input name="highSchoolStudyPeriod"></td><td><div class="mini-checks"><label><input type="checkbox" name="highSchoolType" value="普通班">普通班</label><label><input type="checkbox" name="highSchoolType" value="特殊學校">特殊學校</label><label><input type="checkbox" name="highSchoolType" value="資源班">資源班</label><label><input type="checkbox" name="highSchoolType" value="特殊班">特殊班</label><label><input type="checkbox" name="highSchoolType" value="巡迴輔導">巡迴輔導</label></div></td><td><input name="highSchoolNote"></td></tr></tbody></table></div></div>
+      <section id="assistantsPage" class="page hidden">
+        <div class="section-heading"><div><span class="welcome-label">MY ASSISTANTS</span><h2>我的小幫手</h2><p>新增協助您處理系統工作的帳號，並分配不超過您本身的系統權限。</p></div></div>
+        <div class="tab-panel"><div class="panel-toolbar"><div><h3>小幫手帳號</h3><p>您只能管理自己建立的小幫手。</p></div><div class="toolbar-actions"><button id="syncMyAssistantsBtn" class="btn secondary">🔄 同步我的協作者</button><button id="addAssistantBtn" class="btn primary">＋ 新增小幫手</button></div></div><div id="assistantsList" class="admin-list"></div></div>
+      </section>
 
-<h3>服務與工作經驗</h3>
-<div class="official-section">
-  <h4>幹部經驗</h4><div class="table-wrap"><table class="entry-table"><thead><tr><th>序號</th><th>幹部名稱（何時擔任）</th></tr></thead><tbody><tr><td>1</td><td><input name="cadreExperience1"></td></tr><tr><td>2</td><td><input name="cadreExperience2"></td></tr><tr><td>3</td><td><input name="cadreExperience3"></td></tr></tbody></table></div>
-  <h4>社團經驗</h4><div class="table-wrap"><table class="entry-table"><thead><tr><th>序號</th><th>社團名稱</th><th>參與項目</th></tr></thead><tbody><tr><td>1</td><td><input name="clubName1"></td><td><input name="clubItem1"></td></tr><tr><td>2</td><td><input name="clubName2"></td><td><input name="clubItem2"></td></tr><tr><td>3</td><td><input name="clubName3"></td><td><input name="clubItem3"></td></tr></tbody></table></div>
-  <h4>工作經驗</h4><div class="table-wrap"><table class="entry-table"><thead><tr><th>序號</th><th>工作職稱</th><th>從事內容</th></tr></thead><tbody><tr><td>1</td><td><input name="workTitle1"></td><td><input name="workContent1"></td></tr><tr><td>2</td><td><input name="workTitle2"></td><td><input name="workContent2"></td></tr><tr><td>3</td><td><input name="workTitle3"></td><td><input name="workContent3"></td></tr></tbody></table></div>
-</div>
+      <section id="adminPage" class="page hidden">
+        <div class="section-heading"><div><span class="welcome-label">ADMIN CENTER</span><h2>系統管理中心</h2><p>日常管理在這裡完成，不必再進入 Firebase 修改資料。</p></div></div>
+        <div class="admin-tabs">
+          <button class="tab-btn active" data-tab="users">👥 老師管理</button>
+          <button class="tab-btn" data-tab="systems">🧩 系統管理</button>
+          <button class="tab-btn" data-tab="monitor">📊 系統監控</button>
+        </div>
+        <div id="usersTab" class="tab-panel">
+          <div class="panel-toolbar"><div><h3>老師帳號</h3><p>新增、停用帳號，並設定可使用的系統。</p></div><button id="addUserBtn" class="btn primary">＋ 新增老師</button></div>
+          <div class="sync-toolbar"><div><strong>權限同步</strong><span>老師或協作者資料有變更後，按一次即可同步四套系統。</span></div><button id="syncAllBtn" class="btn primary">🔄 全部同步</button></div>
+          <div class="sync-grid sync-grid-three">
+          <div class="sync-panel"><div><h3>📢 公告平台</h3><p>同步公告後台權限。</p><div id="announcementSyncStatus" class="sync-status">尚未同步</div></div><button id="syncAnnouncementBtn" class="btn ghost">同步公告</button></div>
+          <div class="sync-panel"><div><h3>🎉 活動平台</h3><p>同步活動後台權限。</p><div id="activitySyncStatus" class="sync-status">尚未同步</div></div><button id="syncActivityBtn" class="btn ghost">同步活動</button></div>
+          <div class="sync-panel"><div><h3>📋 服務紀錄</h3><p>同步個管老師與協作者。</p><div id="serviceSyncStatus" class="sync-status">尚未同步</div></div><button id="syncServiceBtn" class="btn ghost">同步服務</button></div>
+          <div class="sync-panel"><div><h3>📝 行政文書</h3><p>同步行政文書登入權限。</p><div id="administrativeDocumentSyncStatus" class="sync-status">尚未同步</div></div><button id="syncAdministrativeDocumentBtn" class="btn ghost">同步行政文書</button></div>
+          </div>
+          <div id="usersList" class="admin-list"></div>
+        </div>
+        <div id="systemsTab" class="tab-panel hidden">
+          <div class="panel-toolbar"><div><h3>系統入口</h3><p>新增系統、修改網址、排序或暫停使用。</p></div><button id="addSystemBtn" class="btn primary">＋ 新增系統</button></div>
+          <div id="systemsList" class="admin-list"></div>
+        </div>
+        <div id="monitorTab" class="tab-panel hidden">
+          <div class="panel-toolbar"><div><h3>系統監控中心</h3><p>GitHub 容量為即時 Repository 容量；GitHub Repository 容量可直接讀取；Firestore 精準容量目前無法由純前端安全取得。</p></div><button id="refreshMonitorBtn" class="btn primary">↻ 重新整理</button></div>
+          <div id="monitorGrid" class="monitor-grid"></div>
+          <div class="monitor-note">GitHub 容量以 1000 MB 作為入口提醒基準；這不是 GitHub 的強制上限。Firestore 容量未顯示不是故障；待日後加入受保護的後端統計後即可呈現。</div>
+        </div>
+      </section>
 
-<fieldset class="official-fieldset"><legend>到校交通工具</legend><div class="checks"><label><input type="checkbox" name="transport" value="大眾運輸">大眾運輸</label><label><input type="checkbox" name="transport" value="無法自行上學">無法自行上學（政府補助 800 元/月）</label><label><input type="checkbox" name="transport" value="自行開車">自行開車</label><label><input type="checkbox" name="transport" value="自行騎機車">自行騎機車</label><label><input type="checkbox" name="transport" value="步行">步行</label><label><input type="checkbox" name="transport" value="其他">其他</label></div><label>其他<input name="transportOther"></label></fieldset>
-<fieldset class="official-fieldset"><legend>我擁有的駕照</legend><div class="checks"><label><input type="checkbox" name="license" value="汽車">汽車</label><label><input type="checkbox" name="license" value="機車">機車</label></div><div class="official-grid cols-2"><label>汽車加註條件<input name="carLicenseCondition"></label><label>機車加註條件<input name="motorcycleLicenseCondition"></label></div></fieldset>
 
-<fieldset class="official-fieldset"><legend>現階段使用的輔具</legend><div class="checks"><label><input type="radio" name="assistiveNeed" value="無需求">無需求</label><label><input type="radio" name="assistiveNeed" value="有需求">有需求</label></div><div class="official-grid cols-2"><label>1. 生活輔具<input name="assistiveLife"></label><label>2. 學習輔具<input name="assistiveLearning"></label><label>3. 醫療輔具<input name="assistiveMedical"></label><label>4. 其它輔具<input name="assistiveOther"></label></div><h4>輔具使用狀況</h4><div class="checks"><label><input type="radio" name="assistiveSource" value="自備">來源：自備</label><label><input type="radio" name="assistiveSource" value="借用">來源：借用</label></div><label>借用來源<input name="assistiveBorrowFrom"></label><div class="checks"><label><input type="radio" name="assistiveCondition" value="良好">良好</label><label><input type="radio" name="assistiveCondition" value="需定時評估調整">需定時評估調整</label><label><input type="radio" name="assistiveCondition" value="急需調整">急需調整</label></div><div class="official-grid cols-2"><label>評估調整頻率（／次）<input name="assistiveFrequency"></label><label>其他<input name="assistiveStatusOther"></label></div></fieldset>
+      <section id="resourcesPage" class="page hidden">
+        <div class="section-heading"><div><span class="welcome-label">RESOURCE CENTER</span><h2>資料管理與容量控管</h2><p>統一查看公告與活動系統上傳到 GitHub Assets 的圖片及附件。</p></div></div>
+        <div class="resource-summary">
+          <article><span>目前用量</span><strong id="assetUsed">讀取中…</strong></article>
+          <article><span>檔案數量</span><strong id="assetCount">—</strong></article>
+          <article><span>圖片</span><strong id="assetImageCount">—</strong></article>
+          <article><span>附件</span><strong id="assetAttachmentCount">—</strong></article>
+        </div>
+        <div class="tab-panel">
+          <div class="panel-toolbar resource-toolbar"><div><h3>共用檔案庫</h3><p>刪除後，仍引用該網址的公告或活動可能無法顯示，請先確認再刪除。</p></div><button id="refreshResourcesBtn" class="btn primary">↻ 重新整理</button></div>
+          <div class="resource-filters"><input id="resourceSearch" placeholder="搜尋檔名或路徑"><select id="resourceSystem"><option value="">全部系統</option><option value="announcement">公告</option><option value="activity">活動</option><option value="shared">共用</option></select><select id="resourceType"><option value="">全部類型</option><option value="image">圖片</option><option value="attachment">附件</option></select></div>
+          <div id="resourceStatus" class="sync-status">尚未讀取</div>
+          <div id="resourceList" class="resource-list"></div>
+        </div>
+      </section>
 
-<h3>二、家庭狀況</h3>
-<div class="official-section"><div class="table-wrap"><table class="entry-table"><thead><tr><th>親屬稱謂</th><th>姓名</th><th>教育程度</th><th>職業</th><th>工作單位</th><th>聯絡電話（手機）</th><th>備註</th></tr></thead><tbody><tr><td><input name="familyRelation1"></td><td><input name="familyName1"></td><td><input name="familyEducation1"></td><td><input name="familyJob1"></td><td><input name="familyWorkplace1"></td><td><input name="familyPhone1"></td><td><input name="familyNote1"></td></tr><tr><td><input name="familyRelation2"></td><td><input name="familyName2"></td><td><input name="familyEducation2"></td><td><input name="familyJob2"></td><td><input name="familyWorkplace2"></td><td><input name="familyPhone2"></td><td><input name="familyNote2"></td></tr><tr><td><input name="familyRelation3"></td><td><input name="familyName3"></td><td><input name="familyEducation3"></td><td><input name="familyJob3"></td><td><input name="familyWorkplace3"></td><td><input name="familyPhone3"></td><td><input name="familyNote3"></td></tr><tr><td><input name="familyRelation4"></td><td><input name="familyName4"></td><td><input name="familyEducation4"></td><td><input name="familyJob4"></td><td><input name="familyWorkplace4"></td><td><input name="familyPhone4"></td><td><input name="familyNote4"></td></tr><tr><td><input name="familyRelation5"></td><td><input name="familyName5"></td><td><input name="familyEducation5"></td><td><input name="familyJob5"></td><td><input name="familyWorkplace5"></td><td><input name="familyPhone5"></td><td><input name="familyNote5"></td></tr><tr><td><input name="familyRelation6"></td><td><input name="familyName6"></td><td><input name="familyEducation6"></td><td><input name="familyJob6"></td><td><input name="familyWorkplace6"></td><td><input name="familyPhone6"></td><td><input name="familyNote6"></td></tr></tbody></table></div></div>
+      <section id="manualPage" class="page hidden">
+        <div class="section-heading"><div><span class="welcome-label">USER GUIDE</span><h2>操作手冊</h2><p>常用操作整理在平台內，交接時也能直接查看。</p></div></div>
+        <div class="manual-layout">
+          <aside class="manual-menu">
+            <button class="manual-link active" data-manual="portal">入口平台</button>
+            <button class="manual-link" data-manual="users">老師與權限</button>
+            <button class="manual-link" data-manual="systems">系統管理</button>
+            <button class="manual-link" data-manual="faq">常見問題</button>
+          </aside>
+          <article id="manualContent" class="manual-content"></article>
+        </div>
+      </section>
+    </main>
 
-<fieldset class="official-fieldset"><legend>家庭狀況</legend>
-  <div class="official-grid cols-5"><label>排行<input name="birthOrder"></label><label>兄（人）<input name="brothersOlder"></label><label>姊（人）<input name="sistersOlder"></label><label>弟（人）<input name="brothersYounger"></label><label>妹（人）<input name="sistersYounger"></label></div>
-  <div class="choice-row"><strong>父母關係</strong><div class="checks"><label><input type="radio" name="parentsRelationship" value="同居">同居</label><label><input type="radio" name="parentsRelationship" value="分居">分居</label><label><input type="radio" name="parentsRelationship" value="離異">離異</label><label><input type="radio" name="parentsRelationship" value="其他">其他</label></div><label>其他<input name="parentsRelationshipOther"></label></div>
-  <div class="choice-row"><strong>個人婚姻狀況</strong><div class="checks"><label><input type="radio" name="maritalStatus" value="未婚">未婚</label><label><input type="radio" name="maritalStatus" value="已婚">已婚</label></div><label>子女（人）<input name="childrenCount"></label></div>
-  <div class="choice-row"><strong>主要照顧者（可複選）</strong><div class="checks"><label><input type="checkbox" name="primaryCaregiver" value="父親">父親</label><label><input type="checkbox" name="primaryCaregiver" value="母親">母親</label><label><input type="checkbox" name="primaryCaregiver" value="祖父">祖父</label><label><input type="checkbox" name="primaryCaregiver" value="祖母">祖母</label><label><input type="checkbox" name="primaryCaregiver" value="其他">其他</label></div><label>其他<input name="primaryCaregiverOther"></label></div>
-  <div class="official-grid cols-2"><label>家中主要使用語言<input name="familyLanguage"></label><div class="choice-row"><strong>父母是否會說（或瞭解）國語</strong><div class="checks"><label><input type="radio" name="parentsMandarin" value="會">會</label><label><input type="radio" name="parentsMandarin" value="不會">不會</label></div></div></div>
-  <div class="choice-row"><strong>家中成員是否有其他特殊個案</strong><div class="checks"><label><input type="radio" name="familySpecialCase" value="無">無</label><label><input type="radio" name="familySpecialCase" value="有">有</label></div><label>說明<input name="familySpecialCaseNote"></label></div>
-  <div class="choice-row"><strong>其他特殊身分</strong><div class="checks"><label><input type="checkbox" name="specialIdentity" value="無">無</label><label><input type="checkbox" name="specialIdentity" value="原住民">原住民</label><label><input type="checkbox" name="specialIdentity" value="新住民">新住民</label><label><input type="checkbox" name="specialIdentity" value="低收入戶">低收入戶</label><label><input type="checkbox" name="specialIdentity" value="其他">其他</label></div><div class="official-grid cols-2"><label>原住民族別<input name="indigenousGroup"></label><label>其他<input name="specialIdentityOther"></label></div></div>
-  <div class="choice-row"><strong>家庭經濟狀況</strong><div class="checks"><label><input type="radio" name="economicStatus" value="富裕">富裕</label><label><input type="radio" name="economicStatus" value="小康">小康</label><label><input type="radio" name="economicStatus" value="清寒">清寒</label></div><strong>是否為低收／中低收入戶</strong><div class="checks"><label><input type="radio" name="lowIncomeStatus" value="是">是</label><label><input type="radio" name="lowIncomeStatus" value="否">否</label></div></div>
-</fieldset>
-
-<fieldset class="official-fieldset"><legend>家庭需求轉介</legend><div class="checks"><label><input type="checkbox" name="familyReferral" value="生活輔助">生活輔助</label><label><input type="checkbox" name="familyReferral" value="獎助學金">獎助學金</label><label><input type="checkbox" name="familyReferral" value="輔具提供">輔具提供</label><label><input type="checkbox" name="familyReferral" value="醫療諮詢">醫療諮詢</label><label><input type="checkbox" name="familyReferral" value="居家照護/喘息服務訊息">居家照護／喘息服務訊息</label><label><input type="checkbox" name="familyReferral" value="身障生心理諮商/輔導">身障生心理諮商／輔導</label><label><input type="checkbox" name="familyReferral" value="特殊教育諮詢">特殊教育諮詢</label><label><input type="checkbox" name="familyReferral" value="職訓及就輔">職訓及就輔</label><label><input type="checkbox" name="familyReferral" value="其他">其他</label></div><label>其他<input name="familyReferralOther"></label></fieldset>
-<div class="choice-row boxed"><strong>家長期望</strong><div class="checks"><label><input type="radio" name="parentExpectation" value="支持就學">支持就學</label><label><input type="radio" name="parentExpectation" value="不支持就學">不支持就學</label><label><input type="radio" name="parentExpectation" value="沒意見">沒意見</label></div></div>
-<div class="choice-row boxed"><strong>自我期望</strong><div class="checks"><label><input type="radio" name="selfExpectation" value="就讀科系符合興趣">就讀科系符合興趣</label><label><input type="radio" name="selfExpectation" value="就讀科系不符合興趣">就讀科系不符合興趣</label></div><div class="checks"><label><input type="checkbox" name="selfExpectationAction" value="考慮轉系">考慮轉系</label><label><input type="checkbox" name="selfExpectationAction" value="其他">其他</label></div><div class="official-grid cols-2 choice-details"><label>考慮轉入科系<input name="selfExpectationTransferDepartment"></label><label>其他<input name="selfExpectationNote"></label></div></div>
-
-<h3>三、健康狀況</h3>
-<fieldset class="official-fieldset"><legend>（一）身體特殊症狀</legend><div class="checks"><label><input type="radio" name="physicalSymptomsPresence" value="無">無</label><label><input type="radio" name="physicalSymptomsPresence" value="有">有</label></div><div class="checks symptom-grid"><label><input type="checkbox" name="physicalSymptoms" value="癲癇">癲癇</label><label><input type="checkbox" name="physicalSymptoms" value="心臟病">心臟病</label><label><input type="checkbox" name="physicalSymptoms" value="腦性麻痺">腦性麻痺</label><label><input type="checkbox" name="physicalSymptoms" value="妥瑞症">妥瑞症</label><label><input type="checkbox" name="physicalSymptoms" value="氣喘病">氣喘病</label><label><input type="checkbox" name="physicalSymptoms" value="高血壓">高血壓</label><label><input type="checkbox" name="physicalSymptoms" value="低血壓">低血壓</label><label><input type="checkbox" name="physicalSymptoms" value="糖尿病">糖尿病</label><label><input type="checkbox" name="physicalSymptoms" value="便溺失禁">便溺失禁</label><label><input type="checkbox" name="physicalSymptoms" value="蠶豆症">蠶豆症</label><label><input type="checkbox" name="physicalSymptoms" value="骨骼易脆">骨骼易脆</label><label><input type="checkbox" name="physicalSymptoms" value="腦膜炎">腦膜炎</label><label><input type="checkbox" name="physicalSymptoms" value="脊柱側彎">脊柱側彎</label><label><input type="checkbox" name="physicalSymptoms" value="精神疾病">精神疾病</label><label><input type="checkbox" name="physicalSymptoms" value="甲狀腺機能低下">甲狀腺機能低下</label><label><input type="checkbox" name="physicalSymptoms" value="甲狀腺機能亢進">甲狀腺機能亢進</label><label><input type="checkbox" name="physicalSymptoms" value="惡性腫瘤">惡性腫瘤</label><label><input type="checkbox" name="physicalSymptoms" value="地中海貧血">地中海貧血</label><label><input type="checkbox" name="physicalSymptoms" value="暈眩">暈眩</label><label><input type="checkbox" name="physicalSymptoms" value="長期失眠">長期失眠</label><label><input type="checkbox" name="physicalSymptoms" value="過敏">過敏</label><label><input type="checkbox" name="physicalSymptoms" value="其他">其他</label></div><div class="official-grid cols-3"><label>惡性腫瘤名稱<input name="malignantTumorName"></label><label>過敏原<input name="allergen"></label><label>其他<input name="symptomsOther"></label></div></fieldset>
-
-<fieldset class="official-fieldset"><legend>（二）服用藥物</legend><div class="checks"><label><input type="radio" name="medicationUse" value="無">無</label><label><input type="radio" name="medicationUse" value="有">有</label></div><div class="table-wrap"><table class="entry-table"><thead><tr><th>藥物名稱</th><th>主要功用</th><th>開始服藥日期（民國年）</th><th>服用頻率</th><th>份量</th><th>副作用</th><th>下次改藥時間（民國年）</th></tr></thead><tbody><tr><td><input name="medName1"></td><td><input name="medPurpose1"></td><td><input name="medStart1" type="text" inputmode="numeric" placeholder="115/08/12" data-roc-date></td><td><input name="medFrequency1"></td><td><input name="medDose1"></td><td><input name="medSideEffect1"></td><td><input name="medNextChange1" type="text" inputmode="numeric" placeholder="115/09/12" data-roc-date></td></tr><tr><td><input name="medName2"></td><td><input name="medPurpose2"></td><td><input name="medStart2" type="text" inputmode="numeric" placeholder="115/08/12" data-roc-date></td><td><input name="medFrequency2"></td><td><input name="medDose2"></td><td><input name="medSideEffect2"></td><td><input name="medNextChange2" type="text" inputmode="numeric" placeholder="115/09/12" data-roc-date></td></tr></tbody></table></div></fieldset>
-
-<fieldset class="official-fieldset"><legend>（三）其他特殊生理健康描述</legend><div class="checks"><label><input type="radio" name="otherHealthPresence" value="無">無</label><label><input type="radio" name="otherHealthPresence" value="有">有</label></div><label>說明<textarea name="otherHealthDescription" rows="4"></textarea></label></fieldset>
-
-<h2>貳、現況能力摘要與特殊教育需求服務</h2>
-<h3>一、現況能力摘要（輔導員填寫）</h3>
-<div class="official-section">
-  <h4>學生能力現況</h4>
-  <div class="official-grid cols-2 ability-summary-grid">
-    <label>健康狀況<textarea name="abilityHealth" rows="3"></textarea><button type="button" class="ai-polish-btn" data-ai-target="abilityHealth" data-ai-section="健康狀況">✨ AI 潤飾此格</button></label><label>感官功能<textarea name="abilitySensory" rows="3"></textarea><button type="button" class="ai-polish-btn" data-ai-target="abilitySensory" data-ai-section="感官功能">✨ AI 潤飾此格</button></label>
-    <label>知覺動作<textarea name="abilityMotor" rows="3"></textarea><button type="button" class="ai-polish-btn" data-ai-target="abilityMotor" data-ai-section="知覺動作">✨ AI 潤飾此格</button></label><label>認知能力<textarea name="abilityCognitive" rows="3"></textarea><button type="button" class="ai-polish-btn" data-ai-target="abilityCognitive" data-ai-section="認知能力">✨ AI 潤飾此格</button></label>
-    <label>溝通能力<textarea name="abilityCommunication" rows="3"></textarea><button type="button" class="ai-polish-btn" data-ai-target="abilityCommunication" data-ai-section="溝通能力">✨ AI 潤飾此格</button></label><label>學業能力<textarea name="abilityAcademic" rows="3"></textarea><button type="button" class="ai-polish-btn" data-ai-target="abilityAcademic" data-ai-section="學業能力">✨ AI 潤飾此格</button></label>
-    <label>生活自理能力<textarea name="abilitySelfCare" rows="3"></textarea><button type="button" class="ai-polish-btn" data-ai-target="abilitySelfCare" data-ai-section="生活自理能力">✨ AI 潤飾此格</button></label><label>社會化及情緒行為能力<textarea name="abilitySocialEmotional" rows="3"></textarea><button type="button" class="ai-polish-btn" data-ai-target="abilitySocialEmotional" data-ai-section="社會化及情緒行為能力">✨ AI 潤飾此格</button></label>
+    <footer><span>明新科技大學｜學務處健康與諮商中心資源教室</span><span>Portal v3.2.1</span></footer>
   </div>
-</div>
 
-<fieldset class="official-fieldset"><legend>綜合評估－學生優弱勢能力</legend>
-  <div class="rating-grid">
-    <fieldset class="compact"><legend>建立人際關係能力</legend><div class="checks"><label><input type="radio" name="strengthRelationship" value="良好">良好</label><label><input type="radio" name="strengthRelationship" value="尚可">尚可</label><label><input type="radio" name="strengthRelationship" value="弱">弱</label></div></fieldset>
-    <fieldset class="compact"><legend>情緒控制能力</legend><div class="checks"><label><input type="radio" name="strengthEmotion" value="良好">良好</label><label><input type="radio" name="strengthEmotion" value="尚可">尚可</label><label><input type="radio" name="strengthEmotion" value="弱">弱</label></div></fieldset>
-    <fieldset class="compact"><legend>個人疾病認識能力</legend><div class="checks"><label><input type="radio" name="strengthIllnessAwareness" value="良好">良好</label><label><input type="radio" name="strengthIllnessAwareness" value="尚可">尚可</label><label><input type="radio" name="strengthIllnessAwareness" value="弱">弱</label></div></fieldset>
-    <fieldset class="compact"><legend>解決問題及處理狀況能力</legend><div class="checks"><label><input type="radio" name="strengthProblemSolving" value="良好">良好</label><label><input type="radio" name="strengthProblemSolving" value="尚可">尚可</label><label><input type="radio" name="strengthProblemSolving" value="弱">弱</label></div></fieldset>
-    <fieldset class="compact"><legend>尋求資源能力</legend><div class="checks"><label><input type="radio" name="strengthResourceSeeking" value="良好">良好</label><label><input type="radio" name="strengthResourceSeeking" value="尚可">尚可</label><label><input type="radio" name="strengthResourceSeeking" value="弱">弱</label></div></fieldset>
-    <fieldset class="compact"><legend>支持系統資源</legend><div class="checks"><label><input type="radio" name="strengthSupportSystem" value="良好">良好</label><label><input type="radio" name="strengthSupportSystem" value="尚可">尚可</label><label><input type="radio" name="strengthSupportSystem" value="弱">弱</label></div></fieldset>
-    <fieldset class="compact"><legend>家人的互動與關懷</legend><div class="checks"><label><input type="radio" name="strengthFamilyInteraction" value="良好">良好</label><label><input type="radio" name="strengthFamilyInteraction" value="尚可">尚可</label><label><input type="radio" name="strengthFamilyInteraction" value="弱">弱</label></div></fieldset>
-    <fieldset class="compact"><legend>家庭經濟狀況</legend><div class="checks"><label><input type="radio" name="strengthFamilyEconomy" value="良好">良好</label><label><input type="radio" name="strengthFamilyEconomy" value="尚可">尚可</label><label><input type="radio" name="strengthFamilyEconomy" value="弱">弱</label></div></fieldset>
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card"><div class="modal-header"><h3 id="modalTitle">編輯</h3><button id="closeModalBtn" class="icon-btn">×</button></div><form id="modalForm" class="modal-body"></form></div>
   </div>
-</fieldset>
+  <div id="toast" class="toast hidden"></div>
 
-<fieldset class="official-fieldset"><legend>現況分析</legend><div class="analysis-grid">
-  <fieldset class="compact"><legend>生活自理能力</legend><div class="checks"><label><input type="radio" name="analysisSelfCare" value="無需協助">無需協助</label><label><input type="radio" name="analysisSelfCare" value="需部份協助">需部份協助</label><label><input type="radio" name="analysisSelfCare" value="完全需要協助">完全需要協助</label><label><input type="radio" name="analysisSelfCare" value="本項不適用">本項不適用</label></div></fieldset>
-  <fieldset class="compact"><legend>職（學）業能力</legend><div class="checks"><label><input type="radio" name="analysisStudyWork" value="無需協助">無需協助</label><label><input type="radio" name="analysisStudyWork" value="需部份協助">需部份協助</label><label><input type="radio" name="analysisStudyWork" value="完全需要協助">完全需要協助</label><label><input type="radio" name="analysisStudyWork" value="本項不適用">本項不適用</label></div></fieldset>
-  <fieldset class="compact"><legend>行動能力</legend><div class="checks"><label><input type="radio" name="analysisMobility" value="無需協助">無需協助</label><label><input type="radio" name="analysisMobility" value="需部份協助">需部份協助</label><label><input type="radio" name="analysisMobility" value="完全需要協助">完全需要協助</label><label><input type="radio" name="analysisMobility" value="本項不適用">本項不適用</label></div></fieldset>
-  <fieldset class="compact"><legend>交通能力</legend><div class="checks"><label><input type="radio" name="analysisTransport" value="無需協助">無需協助</label><label><input type="radio" name="analysisTransport" value="需部份協助">需部份協助</label><label><input type="radio" name="analysisTransport" value="完全需要協助">完全需要協助</label><label><input type="radio" name="analysisTransport" value="本項不適用">本項不適用</label></div></fieldset>
-  <fieldset class="compact"><legend>通訊能力</legend><div class="checks"><label><input type="radio" name="analysisCommunication" value="無需協助">無需協助</label><label><input type="radio" name="analysisCommunication" value="需部份協助">需部份協助</label><label><input type="radio" name="analysisCommunication" value="完全需要協助">完全需要協助</label><label><input type="radio" name="analysisCommunication" value="本項不適用">本項不適用</label></div></fieldset>
-  <fieldset class="compact"><legend>認知理解能力</legend><div class="checks"><label><input type="radio" name="analysisUnderstanding" value="完全能理解">完全能理解</label><label><input type="radio" name="analysisUnderstanding" value="部份能理解">部份能理解</label><label><input type="radio" name="analysisUnderstanding" value="完全不能理解">完全不能理解</label><label><input type="radio" name="analysisUnderstanding" value="本項不適用">本項不適用</label></div></fieldset>
-  <fieldset class="compact"><legend>語言表達能力</legend><div class="checks"><label><input type="radio" name="analysisExpression" value="完全能表達">完全能表達</label><label><input type="radio" name="analysisExpression" value="部份能表達">部份能表達</label><label><input type="radio" name="analysisExpression" value="完全不能表達">完全不能表達</label><label><input type="radio" name="analysisExpression" value="本項不適用">本項不適用</label></div></fieldset>
-  <fieldset class="compact"><legend>人際互動能力</legend><div class="checks"><label><input type="radio" name="analysisInteraction" value="能力良好">能力良好</label><label><input type="radio" name="analysisInteraction" value="能力尚可">能力尚可</label><label><input type="radio" name="analysisInteraction" value="完全不能理解">完全不能理解</label><label><input type="radio" name="analysisInteraction" value="本項不適用">本項不適用</label></div></fieldset>
-  <fieldset class="compact"><legend>休閒能力</legend><div class="checks"><label><input type="radio" name="analysisLeisure" value="能自行參與">能自行參與</label><label><input type="radio" name="analysisLeisure" value="部份能參與">部份能參與</label><label><input type="radio" name="analysisLeisure" value="完全無法參與">完全無法參與</label><label><input type="radio" name="analysisLeisure" value="本項不適用">本項不適用</label></div></fieldset>
-</div></fieldset>
-
-<label class="boxed">學生需求評估<textarea name="studentNeedsAssessment" rows="5"></textarea><button type="button" class="ai-generate-btn" data-ai-target="studentNeedsAssessment" data-ai-mode="needs-assessment">✨ AI 自動產生</button></label>
-
-<h3>特教支持服務及策略</h3>
-<fieldset class="official-fieldset"><legend>學習支持</legend><div class="checks"><label><input type="checkbox" name="learningSupport" value="無特殊學習支持需求">無特殊學習支持需求</label><label><input type="checkbox" name="learningSupport" value="課業輔導（視學生主動申請或需求提供）">課業輔導</label><label><input type="checkbox" name="learningSupport" value="筆記／同儕協助">筆記／同儕協助</label><label><input type="checkbox" name="learningSupport" value="學習輔具協助">學習輔具協助</label><label><input type="checkbox" name="learningSupport" value="考試調整（延長時間／獨立考場等）">考試調整</label><label><input type="checkbox" name="learningSupport" value="課業提醒與關懷（出缺席／作業狀況）">課業提醒與關懷</label><label><input type="checkbox" name="learningSupport" value="必要時協助與任課教師溝通">協助與任課教師溝通</label><label><input type="checkbox" name="learningSupport" value="其他">其他</label></div><label>其他／說明<textarea name="learningSupportNote" rows="3"></textarea></label></fieldset>
-<fieldset class="official-fieldset"><legend>情緒與人際支持</legend><div class="checks"><label><input type="checkbox" name="emotionalSupport" value="無特殊需求">無特殊需求</label><label><input type="checkbox" name="emotionalSupport" value="個別關懷晤談">個別關懷晤談</label><label><input type="checkbox" name="emotionalSupport" value="團體輔導／主題活動參與">團體輔導／主題活動</label><label><input type="checkbox" name="emotionalSupport" value="課業壓力與情緒支持">課業壓力與情緒支持</label><label><input type="checkbox" name="emotionalSupport" value="人際互動適應關懷">人際互動適應關懷</label><label><input type="checkbox" name="emotionalSupport" value="轉介心理諮商資源">轉介心理諮商</label><label><input type="checkbox" name="emotionalSupport" value="其他">其他</label></div><label>其他／說明<textarea name="emotionalSupportNote" rows="3"></textarea></label></fieldset>
-<fieldset class="official-fieldset"><legend>生活與環境適應支持</legend><div class="checks"><label><input type="checkbox" name="environmentSupport" value="無特殊需求">無特殊需求</label><label><input type="checkbox" name="environmentSupport" value="需無障礙環境調整">無障礙環境調整</label><label><input type="checkbox" name="environmentSupport" value="需生活同儕協助">生活同儕協助</label><label><input type="checkbox" name="environmentSupport" value="作息與時間管理協助">作息與時間管理</label><label><input type="checkbox" name="environmentSupport" value="交通費補助（無法自行上下學）">交通費補助</label><label><input type="checkbox" name="environmentSupport" value="其他">其他</label></div><label>無障礙調整／其他／說明<textarea name="environmentSupportNote" rows="3"></textarea></label></fieldset>
-<fieldset class="official-fieldset"><legend>學業規劃支持</legend><div class="checks"><label><input type="checkbox" name="academicPlanningSupport" value="畢業學分檢視與修課進度追蹤">畢業學分與修課追蹤</label><label><input type="checkbox" name="academicPlanningSupport" value="選課諮詢與修課建議">選課諮詢</label><label><input type="checkbox" name="academicPlanningSupport" value="修課負荷評估與調整建議">修課負荷評估</label><label><input type="checkbox" name="academicPlanningSupport" value="課程衝堂與學分風險提醒">衝堂與學分風險提醒</label><label><input type="checkbox" name="academicPlanningSupport" value="畢業進度與延畢風險評估">畢業與延畢風險評估</label><label><input type="checkbox" name="academicPlanningSupport" value="必要時協助與系上溝通修課需求">協助與系上溝通</label><label><input type="checkbox" name="academicPlanningSupport" value="其他">其他</label></div><label>其他／說明<textarea name="academicPlanningSupportNote" rows="3"></textarea></label></fieldset>
-<fieldset class="official-fieldset"><legend>生涯與轉銜支持</legend><div class="checks"><label><input type="checkbox" name="careerSupport" value="生涯探索／討論">生涯探索</label><label><input type="checkbox" name="careerSupport" value="職涯諮詢／評估">職涯諮詢</label><label><input type="checkbox" name="careerSupport" value="畢業準備與轉銜規劃討論">畢業與轉銜規劃</label><label><input type="checkbox" name="careerSupport" value="履歷／自傳協助（修改與建議）">履歷／自傳協助</label><label><input type="checkbox" name="careerSupport" value="就業準備支持（基本面試準備／資訊提供）">就業準備支持</label><label><input type="checkbox" name="careerSupport" value="個別轉銜會議">個別轉銜會議</label><label><input type="checkbox" name="careerSupport" value="轉銜資源連結（就業中心等）">轉銜資源連結</label></div><label>說明<textarea name="careerSupportNote" rows="3"></textarea></label></fieldset>
-<fieldset class="official-fieldset"><legend>行政與資源申請支持</legend><div class="checks"><label><input type="checkbox" name="adminSupport" value="特教生獎助學金申請協助">特教生獎助學金申請</label><label><input type="checkbox" name="adminSupport" value="校內外資源資訊提供：校內－高教深耕計畫">校內外資源資訊</label><label><input type="checkbox" name="adminSupport" value="校內行政資源申請協助">校內行政資源申請</label><label><input type="checkbox" name="adminSupport" value="校外資源轉介與申請協助">校外資源轉介與申請</label><label><input type="checkbox" name="adminSupport" value="其他">其他</label></div><label>其他<textarea name="adminSupportNote" rows="2"></textarea></label></fieldset>
-<fieldset class="official-fieldset"><legend>支持服務調整評估</legend><div class="checks"><label><input type="checkbox" name="supportAdjustment" value="現有支持適切，持續維持">現有支持適切，持續維持</label><label><input type="checkbox" name="supportAdjustment" value="需調整部分支持內容">需調整部分支持內容</label><label><input type="checkbox" name="supportAdjustment" value="需新增或加強支持服務">需新增或加強支持服務</label><label><input type="checkbox" name="supportAdjustment" value="需減少或結束部分支持">需減少或結束部分支持</label><label><input type="checkbox" name="supportAdjustment" value="其他">其他</label></div><label>其他<textarea name="supportAdjustmentNote" rows="2"></textarea></label></fieldset>
-
-<h3 class="form-page-break">二、身心障礙相關補助與服務（輔導員填寫）</h3>
-<fieldset class="official-fieldset"><legend>專業及相關服務現況</legend>
-  <h4>（1）經濟補助</h4><div class="checks"><label><input type="checkbox" name="relatedServices" value="低收入戶生活補助">低收入戶生活補助</label><label><input type="checkbox" name="relatedServices" value="身心障礙者生活補助">身障生活補助</label><label><input type="checkbox" name="relatedServices" value="身心障礙者津貼">身障津貼</label><label><input type="checkbox" name="relatedServices" value="健保自付保費補助">健保自付保費補助</label><label><input type="checkbox" name="relatedServices" value="急難救助">急難救助</label><label><input type="checkbox" name="relatedServices" value="學雜費減免補助">學雜費減免</label><label><input type="checkbox" name="relatedServices" value="獎助學金">獎助學金</label><label><input type="checkbox" name="relatedServices" value="生活及復健輔助器具補助">生活及復健輔具補助</label><label><input type="checkbox" name="relatedServices" value="醫療補助">醫療補助</label><label><input type="checkbox" name="relatedServices" value="租賃補助">租賃補助</label><label><input type="checkbox" name="relatedServices" value="經濟補助其他">其他</label></div>
-  <h4>（2）支持性服務</h4><div class="checks"><label><input type="checkbox" name="relatedServices" value="居家照顧服務">居家照顧</label><label><input type="checkbox" name="relatedServices" value="臨時照顧服務">臨時照顧</label><label><input type="checkbox" name="relatedServices" value="親職教育">親職教育</label><label><input type="checkbox" name="relatedServices" value="交通服務">交通服務</label><label><input type="checkbox" name="relatedServices" value="諮詢服務">諮詢服務</label><label><input type="checkbox" name="relatedServices" value="諮商輔導服務">諮商輔導</label><label><input type="checkbox" name="relatedServices" value="休閒活動">休閒活動</label></div>
-  <h4>（3）復健與醫療服務</h4><div class="checks"><label><input type="checkbox" name="relatedServices" value="物理治療">物理治療</label><label><input type="checkbox" name="relatedServices" value="職能治療">職能治療</label><label><input type="checkbox" name="relatedServices" value="語言治療">語言治療</label><label><input type="checkbox" name="relatedServices" value="個別心理治療">個別心理治療</label><label><input type="checkbox" name="relatedServices" value="團體治療">團體治療</label><label><input type="checkbox" name="relatedServices" value="聽力復健">聽力復健</label><label><input type="checkbox" name="relatedServices" value="精神科醫療">精神科醫療</label><label><input type="checkbox" name="relatedServices" value="視力復健">視力復健</label><label><input type="checkbox" name="relatedServices" value="營養諮詢">營養諮詢</label><label><input type="checkbox" name="relatedServices" value="居家護理">居家護理</label><label><input type="checkbox" name="relatedServices" value="居家復健">居家復健</label><label><input type="checkbox" name="relatedServices" value="輔助器具">輔助器具</label><label><input type="checkbox" name="relatedServices" value="精神復健機構">精神復健機構</label><label><input type="checkbox" name="relatedServices" value="障礙重新鑑定">障礙重新鑑定</label><label><input type="checkbox" name="relatedServices" value="重大疾病性醫療">重大疾病性醫療</label></div>
-  <h4>（4）就學服務</h4><div class="checks"><label><input type="checkbox" name="relatedServices" value="教育輔具">教育輔具</label><label><input type="checkbox" name="relatedServices" value="行為輔導">行為輔導</label><label><input type="checkbox" name="relatedServices" value="課業輔導">課業輔導</label><label><input type="checkbox" name="relatedServices" value="生活輔導">生活輔導</label><label><input type="checkbox" name="relatedServices" value="職業輔導">職業輔導</label><label><input type="checkbox" name="relatedServices" value="就業輔導">就業輔導</label><label><input type="checkbox" name="relatedServices" value="工讀">工讀</label><label><input type="checkbox" name="relatedServices" value="校外實習">校外實習</label></div>
-  <h4>（5）住宿／（6）交通／（7）活動參與</h4><div class="checks"><label><input type="checkbox" name="relatedServices" value="保留床位">保留床位</label><label><input type="checkbox" name="relatedServices" value="特殊寢室">特殊寢室</label><label><input type="checkbox" name="relatedServices" value="室友安排">室友安排</label><label><input type="checkbox" name="relatedServices" value="無法自行上學（政府補助800元／月）">無法自行上學交通補助</label><label><input type="checkbox" name="relatedServices" value="專用停車位識別證／專用牌照">專用停車識別</label><label><input type="checkbox" name="relatedServices" value="期初會議">期初會議</label><label><input type="checkbox" name="relatedServices" value="迎新、送舊">迎新、送舊</label><label><input type="checkbox" name="relatedServices" value="校外參訪">校外參訪</label><label><input type="checkbox" name="relatedServices" value="講座">講座</label><label><input type="checkbox" name="relatedServices" value="競賽活動">競賽活動</label><label><input type="checkbox" name="relatedServices" value="轉銜會議">轉銜會議</label><label><input type="checkbox" name="relatedServices" value="其他">其他</label></div><label>入學管道、實習職種時間、重大疾病或其他說明<textarea name="relatedServicesNote" rows="5"></textarea></label>
-</fieldset>
-<fieldset class="official-fieldset"><legend>其它服務建議</legend><div class="checks"><label><input type="checkbox" name="otherServiceSuggestions" value="經濟補助">經濟補助</label><label><input type="checkbox" name="otherServiceSuggestions" value="居家照顧服務">居家照顧</label><label><input type="checkbox" name="otherServiceSuggestions" value="臨時照顧服務">臨時照顧</label><label><input type="checkbox" name="otherServiceSuggestions" value="發展評估">發展評估</label><label><input type="checkbox" name="otherServiceSuggestions" value="物理治療">物理治療</label><label><input type="checkbox" name="otherServiceSuggestions" value="居家護理">居家護理</label><label><input type="checkbox" name="otherServiceSuggestions" value="職能治療">職能治療</label><label><input type="checkbox" name="otherServiceSuggestions" value="語言治療">語言治療</label><label><input type="checkbox" name="otherServiceSuggestions" value="聽力復健">聽力復健</label><label><input type="checkbox" name="otherServiceSuggestions" value="視力復健">視力復健</label><label><input type="checkbox" name="otherServiceSuggestions" value="心理復健">心理復健</label><label><input type="checkbox" name="otherServiceSuggestions" value="居家復健">居家復健</label><label><input type="checkbox" name="otherServiceSuggestions" value="輔助器具">輔助器具</label><label><input type="checkbox" name="otherServiceSuggestions" value="障礙再鑑定">障礙再鑑定</label><label><input type="checkbox" name="otherServiceSuggestions" value="職業輔導評量">職業輔導評量</label><label><input type="checkbox" name="otherServiceSuggestions" value="職業訓練">職業訓練</label><label><input type="checkbox" name="otherServiceSuggestions" value="就業服務">就業服務</label><label><input type="checkbox" name="otherServiceSuggestions" value="安置服務">安置服務</label><label><input type="checkbox" name="otherServiceSuggestions" value="家庭輔導">家庭輔導</label><label><input type="checkbox" name="otherServiceSuggestions" value="法律協助">法律協助</label><label><input type="checkbox" name="otherServiceSuggestions" value="個案管理">個案管理</label><label><input type="checkbox" name="otherServiceSuggestions" value="其他">其他</label></div><label>其他說明<textarea name="otherServiceSuggestionsNote" rows="3"></textarea></label></fieldset>
-<label class="boxed">服務評估摘要<textarea name="serviceEvaluationSummary" rows="6"></textarea><button type="button" class="ai-generate-btn" data-ai-target="serviceEvaluationSummary" data-ai-mode="service-evaluation">✨ AI 自動產生</button></label>
-
-<div class="actions sticky-actions"><button type="submit" class="primary">儲存草稿</button><button type="button" id="downloadBtn" class="secondary">下載 Word</button></div>
-</form></section></main></div><script type="module" src="app.js?v=1.0.4"></script></body></html>
+  <script type="module" src="./app.js?v=3.2.1"></script>
+</body>
+</html>
