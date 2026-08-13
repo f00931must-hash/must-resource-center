@@ -2,38 +2,36 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null && request.auth.token.email != null; }
-    function email() { return request.auth.token.email; }
-    function meExists() { return signedIn() && exists(/databases/$(database)/documents/portalUsers/$(email())); }
-    function me() { return get(/databases/$(database)/documents/portalUsers/$(email())).data; }
-    function activeUser() { return meExists() && me().enabled == true; }
-    function admin() { return activeUser() && me().role == 'admin'; }
-    function ownsAssistant() {
-      return activeUser()
-        && resource.data.role == 'assistant'
-        && resource.data.ownerEmail == email();
-    }
-    function createsOwnAssistant() {
-      return activeUser()
-        && request.resource.data.role == 'assistant'
-        && request.resource.data.ownerEmail == email();
-    }
-    function updatesOwnAssistant() {
-      return ownsAssistant()
-        && request.resource.data.role == 'assistant'
-        && request.resource.data.ownerEmail == email()
-        && request.resource.data.email == resource.data.email;
+    function email() { return request.auth.token.email.lower(); }
+    function accessExists() { return exists(/databases/$(database)/documents/settings/adminAccess); }
+    function access() { return get(/databases/$(database)/documents/settings/adminAccess).data; }
+    function activeUser() { return signedIn() && accessExists() && access().users[email()].enabled == true; }
+    function admin() { return activeUser() && access().users[email()].role == 'admin'; }
+    function role() { return access().users[email()].role; }
+    function workspaceOwnerEmail() {
+      return role() == 'assistant' ? access().users[email()].ownerEmail : email();
     }
 
-    match /portalUsers/{userEmail} {
+    match /settings/adminAccess {
       allow read: if activeUser();
-      allow create: if admin() || createsOwnAssistant();
-      allow update: if admin() || updatesOwnAssistant();
-      allow delete: if admin() || ownsAssistant();
+      allow create, update: if admin();
+      allow delete: if false;
     }
-    match /systems/{systemId} {
-      allow read: if activeUser();
-      allow create, update, delete: if admin();
+
+    match /adminDocuments/{docId} {
+      allow create: if activeUser()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerEmail == workspaceOwnerEmail();
+      allow read: if activeUser() && resource.data.ownerEmail == workspaceOwnerEmail();
+      allow update: if activeUser()
+        && resource.data.ownerEmail == workspaceOwnerEmail()
+        && request.resource.data.ownerEmail == resource.data.ownerEmail
+        && request.resource.data.ownerUid == resource.data.ownerUid;
+      allow delete: if activeUser()
+        && role() != 'assistant'
+        && resource.data.ownerEmail == email();
     }
+
     match /{document=**} { allow read, write: if false; }
   }
 }

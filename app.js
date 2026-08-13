@@ -1,226 +1,310 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
-import { firebaseConfig, announcementFirebaseConfig, activityFirebaseConfig, serviceRecordFirebaseConfig, administrativeDocumentFirebaseConfig } from "./firebase-config.js";
-
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, query, where, getDoc, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+import { firebaseConfig } from "./firebase-config.js";
 const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getFirestore(app),provider=new GoogleAuthProvider();
-const announcementApp=initializeApp(announcementFirebaseConfig,"announcementPermissionSync");
-const announcementAuth=getAuth(announcementApp), announcementDb=getFirestore(announcementApp), announcementProvider=new GoogleAuthProvider();
-announcementProvider.setCustomParameters({prompt:"select_account"});
-const activityApp=initializeApp(activityFirebaseConfig,"activityPermissionSync");
-const activityAuth=getAuth(activityApp), activityDb=getFirestore(activityApp), activityProvider=new GoogleAuthProvider();
-activityProvider.setCustomParameters({prompt:"select_account"});
-const serviceApp=initializeApp(serviceRecordFirebaseConfig,"servicePermissionSync");
-const serviceAuth=getAuth(serviceApp), serviceDb=getFirestore(serviceApp), serviceProvider=new GoogleAuthProvider();
-serviceProvider.setCustomParameters({prompt:"select_account"});
-const administrativeDocumentApp=initializeApp(administrativeDocumentFirebaseConfig,"administrativeDocumentPermissionSync");
-const administrativeDocumentAuth=getAuth(administrativeDocumentApp), administrativeDocumentDb=getFirestore(administrativeDocumentApp), administrativeDocumentProvider=new GoogleAuthProvider();
-administrativeDocumentProvider.setCustomParameters({prompt:"select_account"});
-provider.setCustomParameters({prompt:"select_account"});
-let currentUser=null,profile=null,systems=[],users=[],resourceFiles=[];
-const RESOURCE_API="https://must-free-upload-service.f00931-must.workers.dev";
-const $=id=>document.getElementById(id); const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
-const defaultSystems=[
-{id:"announcement",name:"資源教室公告欄",description:"查看重要公告、修課通知、獎助學金與活動訊息。",icon:"📢",url:"https://f00931must-hash.github.io/must-resource-platform/",enabled:true,order:1,type:"shared",accent:"#8b5cf6",accentSoft:"#f3e8ff"},
-{id:"activity",name:"資源教室活動報名平台",description:"查看活動資訊、線上報名與填寫活動回饋。",icon:"🎉",url:"https://f00931must-hash.github.io/must-activity-system/frontend/",enabled:true,order:2,type:"shared",accent:"#0ea5e9",accentSoft:"#e0f2fe"},
-{id:"serviceRecord",name:"資源教室服務紀錄系統",description:"管理學生基本資料、服務紀錄、AI 內容潤飾與紀錄表匯出。",icon:"📋",url:"https://f00931must-hash.github.io/must-service-record-system/",enabled:true,order:3,type:"private",accent:"#14b8a6",accentSoft:"#ccfbf1"},
-{id:"administrativeDocuments",name:"行政文書系統",description:"製作新生 ISP 總表，並管理個人的行政文書。",icon:"📝",url:"https://f00931must-hash.github.io/must-admin-document-system/",enabled:true,order:4,type:"private",accent:"#10b981",accentSoft:"#d1fae5"}
+const $=id=>document.getElementById(id);let currentUser=null,currentAccess=null;
+const ISP_AI_ENDPOINT="https://must-resource-ai.f00931-must.workers.dev/ai/isp-summary";
+function normalizedEmail(value){return String(value||'').trim().toLowerCase();}
+function workspaceOwnerEmail(){return currentAccess?.role==='assistant'?normalizedEmail(currentAccess.ownerEmail):normalizedEmail(currentAccess?.email||currentUser?.email);}
+function showPage(id){document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));$(id).classList.remove('hidden');window.scrollTo({top:0,behavior:'smooth'});}function esc(v){return String(v??'').replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[s]));}
+function formData(){const f=$("ispForm"),data={};for(const el of f.elements){if(!el.name||el.type==='submit'||el.type==='button')continue;if(el.type==='checkbox'){if(!data[el.name])data[el.name]=[];if(el.checked)data[el.name].push(el.value);}else if(el.type==='radio'){if(el.checked)data[el.name]=el.value;else if(!(el.name in data))data[el.name]='';}else data[el.name]=el.value;}return data;}
+function clearForm(){$("ispForm").reset();$("docId").value='';}
+function fillForm(data){clearForm();$("docId").value=data.id||'';for(const el of $("ispForm").elements){if(!el.name)continue;const v=data.form?.[el.name];if(el.type==='checkbox')el.checked=Array.isArray(v)?v.includes(el.value):v===el.value;else if(el.type==='radio')el.checked=v===el.value;else if(v!==undefined)el.value=el.matches('[data-roc-date]')?rocInputDate(v):v??'';}}
+$("loginBtn").onclick=()=>signInWithPopup(auth,provider);$("logoutBtn").onclick=()=>signOut(auth);$("newIspBtn").onclick=()=>{clearForm();showPage('ispEditor')};$("backBtn").onclick=()=>showPage('home');
+document.querySelectorAll('.nav[data-view]').forEach(btn=>btn.onclick=async()=>{document.querySelectorAll('.nav').forEach(x=>x.classList.remove('active'));btn.classList.add('active');showPage(btn.dataset.view);if(btn.dataset.view==='mine')await loadDocs();});
+$("ispForm").onsubmit=async e=>{e.preventDefault();if(!currentUser||!currentAccess)return;const form=formData(),ownerEmail=workspaceOwnerEmail();const common={ownerEmail,type:'ISP',studentName:(form.studentName||'').trim(),studentId:(form.studentId||'').trim(),form,updatedAt:serverTimestamp(),lastEditorUid:currentUser.uid,lastEditorEmail:normalizedEmail(currentUser.email)};const id=$("docId").value;if(id)await updateDoc(doc(db,'adminDocuments',id),common);else{const payload={...common,ownerUid:currentUser.uid,createdByUid:currentUser.uid,createdByEmail:normalizedEmail(currentUser.email),createdAt:serverTimestamp()};const ref=await addDoc(collection(db,'adminDocuments'),payload);$("docId").value=ref.id;}alert('草稿已儲存');};
+let ispDocuments=[];
+function admissionYear(value){const parsed=dateParts(value);return parsed?.y||0;}
+function createdSeconds(item){return item.createdAt?.seconds||0;}
+function sortedIspDocuments(){const mode=$("ispSort")?.value||"admission-desc";return [...ispDocuments].sort((a,b)=>{if(mode.startsWith("admission")){const yearA=admissionYear(a.form?.admissionDate),yearB=admissionYear(b.form?.admissionDate);if(!yearA||!yearB){if(yearA!==yearB)return yearA? -1:1;}else if(yearA!==yearB)return mode==="admission-asc"?yearA-yearB:yearB-yearA;return mode==="admission-asc"?createdSeconds(a)-createdSeconds(b):createdSeconds(b)-createdSeconds(a);}return mode==="created-asc"?createdSeconds(a)-createdSeconds(b):createdSeconds(b)-createdSeconds(a);});}
+function renderDocs(){const list=$("docList");list.innerHTML='';const items=sortedIspDocuments();if(!items.length){list.innerHTML='<div class="doc-item">目前尚無新生 ISP 總表。</div>';return;}for(const d of items){const div=document.createElement('div');div.className='doc-item';const year=admissionYear(d.form?.admissionDate);div.innerHTML=`<div><strong>${esc(d.studentName||'未命名')}｜ISP</strong><div class="doc-meta">${esc(d.studentId||'尚未填學號')}　${year?`入學年 ${year}`:'尚未填入學年'}</div></div><div class="doc-actions"><button class="secondary open-doc">開啟</button>${currentAccess?.role==='assistant'?'':'<button class="delete-doc">刪除</button>'}</div>`;div.querySelector('.open-doc').onclick=()=>{fillForm(d);showPage('ispEditor')};const deleteButton=div.querySelector('.delete-doc');if(deleteButton)deleteButton.onclick=async()=>{const name=d.studentName||'未命名';if(!confirm(`確定要永久刪除「${name}」的新生 ISP 總表嗎？\n\n刪除後無法復原。`))return;if(!confirm(`請再次確認：真的要永久刪除「${name}」嗎？`))return;deleteButton.disabled=true;try{await deleteDoc(doc(db,'adminDocuments',d.id));ispDocuments=ispDocuments.filter(item=>item.id!==d.id);renderDocs();alert('已永久刪除，系統不會保留垃圾桶或封存副本。');}catch(error){console.error(error);deleteButton.disabled=false;alert('刪除失敗，請確認帳號權限或稍後再試。');}};list.appendChild(div);}}
+async function loadDocs(){if(!currentUser||!currentAccess)return;const q=query(collection(db,'adminDocuments'),where('ownerEmail','==',workspaceOwnerEmail()));const snap=await getDocs(q);ispDocuments=[];snap.forEach(s=>{const item={id:s.id,...s.data()};if(!item.type||item.type==='ISP')ispDocuments.push(item);});renderDocs();}
+$("ispSort").onchange=renderDocs;
+onAuthStateChanged(auth,async user=>{currentUser=user;currentAccess=null;$("appView").classList.add('hidden');$("loginView").classList.add('hidden');$("deniedView").classList.add('hidden');if(!user){$("loginView").classList.remove('hidden');return}try{const email=String(user.email||'').trim().toLowerCase();const snap=await getDoc(doc(db,'settings','adminAccess'));const access=snap.data()?.users?.[email];if(!access||access.enabled===false)throw new Error('not-authorized');currentAccess=access;$("appView").classList.remove('hidden');$("userEmail").textContent=`${access.displayName||email}\n${email}`;}catch(err){console.error(err);$("deniedMessage").textContent='此帳號尚未由資源教室行政平台開通行政文書權限，或權限尚未同步。';$("deniedView").classList.remove('hidden');}});
+$("deniedLogoutBtn").onclick=()=>signOut(auth);
+
+
+function markOne(value, option){ return value===option ? "■" : "□"; }
+function markMany(values, option){ return Array.isArray(values) && values.includes(option) ? "■" : "□"; }
+function checkLines(values, options){ return options.map(x=>`${markMany(values,x)} ${x}`).join("\n"); }
+function checkInline(values, options){ return options.map(x=>`${markMany(values,x)}${x}`).join("　"); }
+function ratingLine(label, value, options){ return `${label} ${options.map(x=>`${markOne(value,x)}${x}`).join(" ")}`; }
+function ratingOptions(value, options){return options.map(x=>`${markOne(value,x)}${x}`).join(" ");}
+function compactRatingLine(label, value, options){return `${label} ${options.map(x=>`${markOne(value,x)}${x}`).join("")}`;}
+function serviceOption(values, option, label=option){return `${markMany(values,option)}${label}`;}
+const rocDateFields=["fillDate","birthday","admissionDate","leaveDate","assessmentDate","reassessmentDate","medStart1","medNextChange1","medStart2","medNextChange2"];
+function dateParts(v){
+  const m=String(v??'').trim().match(/^(?:民國\s*)?(\d{2,4})\s*[年\/.\-]\s*(\d{1,2})\s*[月\/.\-]\s*(\d{1,2})\s*日?$/);
+  if(!m)return null;
+  let y=Number(m[1]);const month=Number(m[2]),day=Number(m[3]);
+  if(y>=1912)y-=1911;
+  if(y<1||month<1||month>12||day<1||day>31)return null;
+  return {y,month,day};
+}
+function rocInputDate(v){const p=dateParts(v);return p?`${p.y}/${String(p.month).padStart(2,'0')}/${String(p.day).padStart(2,'0')}`:String(v??'');}
+function dateText(v){const p=dateParts(v);return p?`${p.y}年${p.month}月${p.day}日`:String(v??'').trim();}
+function compactDateText(v){const p=dateParts(v);return p?`${p.y}/${String(p.month).padStart(2,'0')}/${String(p.day).padStart(2,'0')}`:String(v??'').trim();}
+function exportData(f){
+  const sys=f.schoolSystem||"";
+  const adm=f.admissionMethod||"";
+  const rocData={...f};
+  rocDateFields.forEach(name=>{rocData[name]=dateText(f[name]);});
+  ["medStart1","medNextChange1","medStart2","medNextChange2"].forEach(name=>{rocData[name]=compactDateText(f[name]);});
+  return {
+    ...rocData,
+    fillDateText: dateText(f.fillDate),
+    birthdayText: compactDateText(f.birthday), admissionDateText: compactDateText(f.admissionDate),
+    genderChecks:`${markOne(f.gender,"男")}男${markOne(f.gender,"女")}女`,
+    schoolSystemChecks:`${markOne(sys,"大學部")}大學部  ${markOne(sys,"研究所碩士班")}研究所碩士班  ${markOne(sys,"進修部")}進修部  ${markOne(sys,"其他")}其他${sys==="其他"&&f.schoolSystemOther?`：${f.schoolSystemOther}`:""}`,
+    admissionMethodChecks:`${markOne(adm,"一般入學考試")}一般入學考試  ${markOne(adm,"身心障礙甄試")}身心障礙甄試\n${markOne(adm,"推薦甄選")}推薦甄選  ${markOne(adm,"轉學考")}轉學考  ${markOne(adm,"其他")}其他${adm==="其他"&&f.admissionMethodOther?`：${f.admissionMethodOther}`:""}`,
+    addressBlock:`就學期間通訊（${markOne(f.livingType,"自家")}自家 ${markOne(f.livingType,"校舍")}校舍 ${markOne(f.livingType,"外宿")}外宿 ${markOne(f.livingType,"其他")}其他）
+通訊：${f.mailingAddress||""}
+戶籍：${markMany(f.registeredSame,"是")}同上 ${f.registeredAddress||""}`,
+    phoneBlock:`寢電：${f.dormPhone||""}
+住宅：${f.homePhone||""}
+手機：${f.mobile||""}`,
+    certificateBlock:`身心障礙手冊（證明）：${markOne(f.disabilityCertificate,"有")}有（手冊記載類別：${f.certificateCategory||""} 程度：${f.certificateLevel||""}）ICD：${f.icd||""}\n鑑定日期：${dateText(f.assessmentDate)}；重新鑑定日期：${dateText(f.reassessmentDate)}\n${markOne(f.disabilityCertificate,"無")}無，其他：${markMany(f.otherCertificate,"鑑輔會證明")}鑑輔會證明（證書編號：${f.certificateNo||""} 障別：${f.disabilityType||""}） ${markMany(f.otherCertificate,"醫院診斷證明")}醫院診斷證明（最近文號：${f.hospitalDocNo||""}）`,
+    disabilityBlock:`障礙特徵：${f.disabilityFeatures||""}\n致障時間：${markOne(f.onsetType,"先天")}先天 ${markOne(f.onsetType,"後天")}後天（年齡：${f.onsetAge||""}歲）`,
+    causeBlock:`致障原因：${f.disabilityCause||""}`, treatmentBlock:`治療經過：${f.treatmentHistory||""}`, statusBlock:`障礙現況：（目前復原情形？身體健康狀況？繼續接受治療？）\n${f.currentDisabilityStatus||""}`,
+    visionBlock:`（裸視）左：${f.visionRawLeft||""}度 右：${f.visionRawRight||""}度\n（矯正後）左：${f.visionCorrectedLeft||""}度 右：${f.visionCorrectedRight||""}度`,
+    hearingBlock:`（裸耳）左：${f.hearingRawLeft||""} 右：${f.hearingRawRight||""}（dB）
+${markMany(f.hearingDevice,"助聽器")}助聽器 ${markMany(f.hearingDevice,"人工電子耳")}人工電子耳 左：${f.hearingAidLeft||""} 右：${f.hearingAidRight||""}（dB）`,
+    strengthChecks:["舉","扔","推","拉","抓","握"].map(x=>`${markMany(f.physicalStrength,x)}${x}`).join(""),
+    postureChecks:["彎腰","跪蹲","匍匐","平衡"].map(x=>`${markMany(f.posture,x)}${x}`).join(""),
+    mobilityChecks:["行走","坐","立","攀登","爬行","手指運轉"].map(x=>`${markMany(f.mobility,x)}${x}`).join(""),
+    communicationChecks:["口語","國語","台語","客語","手語","讀唇","筆談","其他"].map(x=>`${markMany(f.communication,x)}${x}`).join(""),
+    orientationChecks:["能迅速正確辨別方位","方位辨別遲緩","不能辨別方位"].map(x=>`${markOne(f.orientation,x)}${x}`).join(""),
+    motorChecks:["粗大動作","精細動作","協調動作"].map(x=>`${markMany(f.motorAbility,x)}${x}`).join(""),
+    reactionChecks:["反應靈敏","反應尚可","反應遲緩"].map(x=>`${markOne(f.reaction,x)}${x}`).join("\n"),
+    assistiveBlock:`${markOne(f.needAssistiveDevice,"否")}否\n${markOne(f.needAssistiveDevice,"是")}是 何種輔具：${f.assistiveDeviceType||""}`,
+    emergencyCompanyPhoneText:`公司：${f.emergencyCompanyPhone||""}`,
+    emergencyHomePhoneText:`住家：${f.emergencyHomePhone||""}`,
+    emergencyMobileText:`手機：${f.emergencyMobile||""}`,
+    emergencyEmailText:`E-mail：${f.emergencyEmail||""}`,
+    emergencyAddressBlock:`（${markOne(f.emergencyAddressType,"同戶籍")}同戶籍 ${markOne(f.emergencyAddressType,"公司")}公司 ${markOne(f.emergencyAddressType,"其他")}其他） ${f.emergencyAddress||""}`,
+    talentsBlock:[
+      ["唱歌","樂器","舞蹈","運動"],
+      ["美演","語言","手工藝","機械"],
+      ["網頁設計","撰寫程式","文藝創作","手語翻譯","表演"],
+    ].map(row=>row.map(x=>`${markMany(f.talents,x)}${x}`).join("　")).join("\n")+
+      `\n${markMany(f.talents,"其他")}其他${f.talentsOther?`：${f.talentsOther}`:""}`,
+    highSchoolTypeChecks:["普通班","特殊學校","資源班","特殊班","巡迴輔導"].map(x=>`${markMany(f.highSchoolType,x)}${x}`).join(""),
+    cadreBlock:`幹部名稱（何時擔任）\n1. ${f.cadreExperience1||""}\n2. ${f.cadreExperience2||""}\n3. ${f.cadreExperience3||""}`,
+    clubBlock:`社團名稱　參與項目\n1. ${f.clubName1||""}　${f.clubItem1||""}\n2. ${f.clubName2||""}　${f.clubItem2||""}\n3. ${f.clubName3||""}　${f.clubItem3||""}`,
+    workBlock:`工作職稱　從事內容\n1. ${f.workTitle1||""}　${f.workContent1||""}\n2. ${f.workTitle2||""}　${f.workContent2||""}\n3. ${f.workTitle3||""}　${f.workContent3||""}`,
+    transportLicenseBlock:`到校交通工具：${["大眾運輸","無法自行上學","自行開車","自行騎機車","步行"].map(x=>`${markMany(f.transport,x)}${x}`).join("　")}\n`+
+      `${markMany(f.transport,"其他")}其他：${f.transportOther||""}\n`+
+      `我擁有的駕照：${markMany(f.license,"汽車")}汽車（加註條件：${f.carLicenseCondition||""}）　${markMany(f.license,"機車")}機車（加註條件：${f.motorcycleLicenseCondition||""}）`,
+    assistiveUseBlock:`現階段使用的輔具：\n${markOne(f.assistiveNeed,"無需求")}無需求\n${markOne(f.assistiveNeed,"有需求")}有需求：1.生活輔具：${f.assistiveLife||""}\n2.學習輔具：${f.assistiveLearning||""}\n3.醫療輔具：${f.assistiveMedical||""}\n4.其它輔具：${f.assistiveOther||""}`,
+    assistiveStatusBlock:`輔具使用狀況：\n輔具來源：${markOne(f.assistiveSource,"自備")}自備　${markOne(f.assistiveSource,"借用")}借用：${f.assistiveBorrowFrom||""}\n`+
+      `輔具現況：${markOne(f.assistiveCondition,"良好")}良好　${markOne(f.assistiveCondition,"需定時評估調整")}需定時評估調整（頻率：${f.assistiveFrequency||""}／次）　${markOne(f.assistiveCondition,"急需調整")}急需調整\n其他：${f.assistiveStatusOther||""}`,
+    familyStatusBlock:`1.排行：${f.birthOrder||""}，兄：${f.brothersOlder||""}人、姊：${f.sistersOlder||""}人、弟：${f.brothersYounger||""}人、妹：${f.sistersYounger||""}人\n`+
+      `2.父母關係：${["同居","分居","離異","其他"].map(x=>`${markOne(f.parentsRelationship,x)}${x}`).join(" ")}${f.parentsRelationshipOther?`：${f.parentsRelationshipOther}`:""}\n`+
+      `3.個人婚姻狀況：${markOne(f.maritalStatus,"未婚")}未婚 ${markOne(f.maritalStatus,"已婚")}已婚（子女：${f.childrenCount||""}人）\n`+
+      `4.主要照顧者：${["父親","母親","祖父","祖母","其他"].map(x=>`${markMany(f.primaryCaregiver,x)}${x}`).join(" ")}${f.primaryCaregiverOther?`：${f.primaryCaregiverOther}`:""}\n`+
+      `5.家中主要使用語言：${f.familyLanguage||""}，父母是否會說（或瞭解）國語：${markOne(f.parentsMandarin,"會")}會 ${markOne(f.parentsMandarin,"不會")}不會\n`+
+      `6.家中成員是否有其他特殊個案：${markOne(f.familySpecialCase,"無")}無 ${markOne(f.familySpecialCase,"有")}有（說明：${f.familySpecialCaseNote||""}）\n`+
+      `7.其他特殊身分：${["無","原住民","新住民","低收入戶","其他"].map(x=>`${markMany(f.specialIdentity,x)}${x}`).join(" ")}　原住民族別：${f.indigenousGroup||""}　其他：${f.specialIdentityOther||""}\n`+
+      `8.家庭經濟狀況：${["富裕","小康","清寒"].map(x=>`${markOne(f.economicStatus,x)}${x}`).join(" ")}（是否為低收／中低收入戶？${markOne(f.lowIncomeStatus,"是")}是 ${markOne(f.lowIncomeStatus,"否")}否）`,
+    familyReferralBlock:`${["生活輔助","獎助學金","輔具提供","醫療諮詢","居家照護/喘息服務訊息","身障生心理諮商/輔導","特殊教育諮詢","職訓及就輔","其他"].map(x=>`${markMany(f.familyReferral,x)}${x}`).join("　")}${f.familyReferralOther?`：${f.familyReferralOther}`:""}`,
+    parentExpectationChecks:["支持就學","不支持就學","沒意見"].map(x=>`${markOne(f.parentExpectation,x)}${x}`).join("　"),
+    selfExpectationBlock:`${markOne(f.selfExpectation,"就讀科系符合興趣")}就讀科系符合興趣　${markOne(f.selfExpectation,"就讀科系不符合興趣")}就讀科系不符合興趣：${markMany(f.selfExpectationAction,"考慮轉系")}考慮轉系${Array.isArray(f.selfExpectationAction)&&f.selfExpectationAction.includes("考慮轉系")&&f.selfExpectationTransferDepartment?`：${f.selfExpectationTransferDepartment}`:""}　${markMany(f.selfExpectationAction,"其他")}其他${f.selfExpectationNote?`：${f.selfExpectationNote}`:""}`
+    ,physicalSymptomsPresenceChecks:`${markOne(f.physicalSymptomsPresence,"無")}無　${markOne(f.physicalSymptomsPresence,"有")}有（請勾選或填寫下列選項）`,
+    physicalSymptomsLine1:["癲癇","心臟病","腦性麻痺","妥瑞症","氣喘病","高血壓"].map(x=>`${markMany(f.physicalSymptoms,x)}${x}`).join("　"),
+    physicalSymptomsLine2:["低血壓","糖尿病","便溺失禁","蠶豆症","骨骼易脆","腦膜炎"].map(x=>`${markMany(f.physicalSymptoms,x)}${x}`).join("　"),
+    physicalSymptomsLine3:["脊柱側彎","精神疾病","甲狀腺機能低下","甲狀腺機能亢進"].map(x=>`${markMany(f.physicalSymptoms,x)}${x}`).join("　"),
+    physicalSymptomsLine4:`${markMany(f.physicalSymptoms,"惡性腫瘤")}惡性腫瘤${Array.isArray(f.physicalSymptoms)&&f.physicalSymptoms.includes("惡性腫瘤")&&f.malignantTumorName?`，${f.malignantTumorName}`:""}　${["地中海貧血","暈眩","長期失眠"].map(x=>`${markMany(f.physicalSymptoms,x)}${x}`).join("　")}`,
+    physicalSymptomsLine5:`${markMany(f.physicalSymptoms,"過敏")}過敏，過敏原：${f.allergen||""}　${markMany(f.physicalSymptoms,"其他")}其他：${f.symptomsOther||""}`,
+    medicationUseChecks:`${markOne(f.medicationUse,"無")}無　${markOne(f.medicationUse,"有")}有（請填寫下表）`,
+    otherHealthBlock:`${markOne(f.otherHealthPresence,"無")}無　${markOne(f.otherHealthPresence,"有")}有，請說明：${f.otherHealthDescription||""}`,
+    strengthsBlock:[
+      ratingLine("(1)建立人際關係能力",f.strengthRelationship,["良好","尚可","弱"]), ratingLine("(2)情緒控制能力",f.strengthEmotion,["良好","尚可","弱"]),
+      ratingLine("(3)個人疾病認識能力",f.strengthIllnessAwareness,["良好","尚可","弱"]), ratingLine("(4)解決問題及處理狀況能力",f.strengthProblemSolving,["良好","尚可","弱"]),
+      ratingLine("(5)尋求資源能力",f.strengthResourceSeeking,["良好","尚可","弱"]), ratingLine("(6)支持系統資源",f.strengthSupportSystem,["良好","尚可","弱"]),
+      ratingLine("(7)家人的互動與關懷",f.strengthFamilyInteraction,["良好","尚可","弱"]), ratingLine("(8)家庭經濟狀況",f.strengthFamilyEconomy,["良好","尚可","弱"])
+    ].join("\n"),
+    strengthLine1:ratingOptions(f.strengthRelationship,["良好","尚可","弱"]),
+    strengthLine2:ratingOptions(f.strengthEmotion,["良好","尚可","弱"]),
+    strengthLine3:ratingOptions(f.strengthIllnessAwareness,["良好","尚可","弱"]),
+    strengthLine4:ratingOptions(f.strengthProblemSolving,["良好","尚可","弱"]),
+    strengthLine5:ratingOptions(f.strengthResourceSeeking,["良好","尚可","弱"]),
+    strengthLine6:ratingOptions(f.strengthSupportSystem,["良好","尚可","弱"]),
+    strengthLine7:ratingOptions(f.strengthFamilyInteraction,["良好","尚可","弱"]),
+    strengthLine8:ratingOptions(f.strengthFamilyEconomy,["良好","尚可","弱"]),
+    analysisBlock:[
+      compactRatingLine("(1)生活自理能力",f.analysisSelfCare,["無需協助","需部份協助","完全需要協助","本項不適用"]), compactRatingLine("(2)職(學)業能力",f.analysisStudyWork,["無需協助","需部份協助","完全需要協助","本項不適用"]),
+      compactRatingLine("(3)行動能力",f.analysisMobility,["無需協助","需部份協助","完全需要協助","本項不適用"]), compactRatingLine("(4)交通能力",f.analysisTransport,["無需協助","需部份協助","完全需要協助","本項不適用"]),
+      compactRatingLine("(5)通訊能力",f.analysisCommunication,["無需協助","需部份協助","完全需要協助","本項不適用"]), compactRatingLine("(6)認知理解能力",f.analysisUnderstanding,["完全能理解","部份能理解","完全不能理解","本項不適用"]),
+      compactRatingLine("(7)語言表達能力",f.analysisExpression,["完全能表達","部份能表達","完全不能表達","本項不適用"]), compactRatingLine("(8)人際互動能力",f.analysisInteraction,["能力良好","能力尚可","完全不能理解","本項不適用"]),
+      compactRatingLine("(9)休閒能力",f.analysisLeisure,["能自行參與","部份能參與","完全無法參與","本項不適用"])
+    ].join("\n"),
+    learningSupportBlock:`${checkLines(f.learningSupport,["無特殊學習支持需求","課業輔導（視學生主動申請或需求提供）","筆記／同儕協助","學習輔具協助","考試調整（延長時間／獨立考場等）","課業提醒與關懷（出缺席／作業狀況）","必要時協助與任課教師溝通","其他"])}\n說明：${f.learningSupportNote||""}`,
+    emotionalSupportBlock:`${checkLines(f.emotionalSupport,["無特殊需求","個別關懷晤談","團體輔導／主題活動參與","課業壓力與情緒支持","人際互動適應關懷","轉介心理諮商資源","其他"])}\n說明：${f.emotionalSupportNote||""}`,
+    environmentSupportBlock:`${checkLines(f.environmentSupport,["無特殊需求","需無障礙環境調整","需生活同儕協助","作息與時間管理協助","交通費補助（無法自行上下學）","其他"])}\n說明：${f.environmentSupportNote||""}`,
+    academicPlanningSupportBlock:`${checkLines(f.academicPlanningSupport,["畢業學分檢視與修課進度追蹤","選課諮詢與修課建議","修課負荷評估與調整建議","課程衝堂與學分風險提醒","畢業進度與延畢風險評估","必要時協助與系上溝通修課需求","其他"])}\n說明：${f.academicPlanningSupportNote||""}`,
+    careerSupportBlock:`${checkLines(f.careerSupport,["生涯探索／討論","職涯諮詢／評估","畢業準備與轉銜規劃討論","履歷／自傳協助（修改與建議）","就業準備支持（基本面試準備／資訊提供）","個別轉銜會議","轉銜資源連結（就業中心等）"])}\n說明：${f.careerSupportNote||""}`,
+    adminSupportBlock:`${checkLines(f.adminSupport,["特教生獎助學金申請協助","校內外資源資訊提供：校內－高教深耕計畫","校內行政資源申請協助","校外資源轉介與申請協助","其他"])}\n其他：${f.adminSupportNote||""}`,
+    supportAdjustmentBlock:`${checkLines(f.supportAdjustment,["現有支持適切，持續維持","需調整部分支持內容","需新增或加強支持服務","需減少或結束部分支持","其他"])}\n其他：${f.supportAdjustmentNote||""}`,
+    relatedServicesBlock:`（1）經濟補助\n`+
+      `${serviceOption(f.relatedServices,"低收入戶生活補助")} ${serviceOption(f.relatedServices,"身心障礙者生活補助")} ${serviceOption(f.relatedServices,"身心障礙者津貼")}\n`+
+      `${serviceOption(f.relatedServices,"健保自付保費補助")} ${serviceOption(f.relatedServices,"急難救助")} ${serviceOption(f.relatedServices,"學雜費減免補助")}\n`+
+      `${serviceOption(f.relatedServices,"獎助學金")} ${serviceOption(f.relatedServices,"生活及復健輔助器具補助")} ${serviceOption(f.relatedServices,"醫療補助")}\n`+
+      `${serviceOption(f.relatedServices,"租賃補助")} ${serviceOption(f.relatedServices,"經濟補助其他","其他")}：________________（請註明）\n`+
+      `（2）支持性服務\n`+
+      `${serviceOption(f.relatedServices,"居家照顧服務")} ${serviceOption(f.relatedServices,"臨時照顧服務")} ${serviceOption(f.relatedServices,"親職教育")} ${serviceOption(f.relatedServices,"交通服務")}\n`+
+      `${serviceOption(f.relatedServices,"諮詢服務")} ${serviceOption(f.relatedServices,"諮商輔導服務")} ${serviceOption(f.relatedServices,"休閒活動")} ${serviceOption(f.relatedServices,"支持性服務其他","其他")}：________\n`+
+      `（3）復健與醫療服務\n`+
+      `${serviceOption(f.relatedServices,"物理治療")} ${serviceOption(f.relatedServices,"職能治療")} ${serviceOption(f.relatedServices,"語言治療")} ${serviceOption(f.relatedServices,"個別心理治療")}\n`+
+      `${serviceOption(f.relatedServices,"團體治療")} ${serviceOption(f.relatedServices,"聽力復健")} ${serviceOption(f.relatedServices,"精神科醫療")} ${serviceOption(f.relatedServices,"視力復健")} ${serviceOption(f.relatedServices,"營養諮詢")}\n`+
+      `${serviceOption(f.relatedServices,"居家護理")} ${serviceOption(f.relatedServices,"居家復健")} ${serviceOption(f.relatedServices,"輔助器具")} ${serviceOption(f.relatedServices,"精神復健機構")}\n`+
+      `${serviceOption(f.relatedServices,"障礙重新鑑定")} ${serviceOption(f.relatedServices,"重大疾病性醫療")}：________（請註明）\n`+
+      `${serviceOption(f.relatedServices,"復健醫療其他","其他")}：________________________（請註明）\n`+
+      `（4）就學服務\n`+
+      `${serviceOption(f.relatedServices,"教育輔具")} ${serviceOption(f.relatedServices,"行為輔導")} ${serviceOption(f.relatedServices,"課業輔導")} ${serviceOption(f.relatedServices,"生活輔導")} ${serviceOption(f.relatedServices,"職業輔導")}\n`+
+      `${serviceOption(f.relatedServices,"就業輔導")} ${serviceOption(f.relatedServices,"入學管道","入學管道")}：請註明\n`+
+      `${serviceOption(f.relatedServices,"工讀")} ${serviceOption(f.relatedServices,"校外實習","校外實習業")}：請註明職種及時間\n`+
+      `${serviceOption(f.relatedServices,"就學服務其他","其他")}：________________________（請註明）\n`+
+      `（5）住宿\n${serviceOption(f.relatedServices,"保留床位")} ${serviceOption(f.relatedServices,"特殊寢室")} ${serviceOption(f.relatedServices,"室友安排")} ${serviceOption(f.relatedServices,"住宿其他","其他")}：________\n`+
+      `（6）交通：\n${serviceOption(f.relatedServices,"無法自行上學（政府補助800元／月）")}\n${serviceOption(f.relatedServices,"專用停車位識別證／專用牌照")}\n`+
+      `（7）活動參與：${serviceOption(f.relatedServices,"期初會議")} ${serviceOption(f.relatedServices,"迎新、送舊")} ${serviceOption(f.relatedServices,"校外參訪")}\n`+
+      `　　　　　　 ${serviceOption(f.relatedServices,"講座")} ${serviceOption(f.relatedServices,"競賽活動")} ${serviceOption(f.relatedServices,"轉銜會議")}\n`+
+      `（8）其他：${f.relatedServicesNote||""}　　　　　　　　　（請註明）`,
+    otherServiceSuggestionsBlock:`經濟補助 ${serviceOption(f.otherServiceSuggestions,"居家照顧服務")} ${serviceOption(f.otherServiceSuggestions,"臨時照顧服務")} ${serviceOption(f.otherServiceSuggestions,"發展評估")}\n`+
+      `${serviceOption(f.otherServiceSuggestions,"物理治療")} ${serviceOption(f.otherServiceSuggestions,"居家護理")} ${serviceOption(f.otherServiceSuggestions,"職能治療")} ${serviceOption(f.otherServiceSuggestions,"語言治療")} ${serviceOption(f.otherServiceSuggestions,"聽力復健")}\n`+
+      `${serviceOption(f.otherServiceSuggestions,"視力復健")} ${serviceOption(f.otherServiceSuggestions,"心理復健")} ${serviceOption(f.otherServiceSuggestions,"居家復健")} ${serviceOption(f.otherServiceSuggestions,"輔助器具")} ${serviceOption(f.otherServiceSuggestions,"障礙再鑑定")}\n`+
+      `${serviceOption(f.otherServiceSuggestions,"職業輔導評量")} ${serviceOption(f.otherServiceSuggestions,"職業訓練")} ${serviceOption(f.otherServiceSuggestions,"就業服務")}${serviceOption(f.otherServiceSuggestions,"安置服務")} ${serviceOption(f.otherServiceSuggestions,"家庭輔導")}\n`+
+      `${serviceOption(f.otherServiceSuggestions,"法律協助")} ${serviceOption(f.otherServiceSuggestions,"個案管理")} ${serviceOption(f.otherServiceSuggestions,"其他")}：${f.otherServiceSuggestionsNote||""}（請註明）`
+  };
+}
+
+function getIspAiText(payload){
+  return String(payload?.polishedText ?? payload?.polished ?? payload?.text ?? payload?.result ?? payload?.output ?? "").trim();
+}
+
+const AI_NEEDS_FIELDS=[
+  "disabilityFeatures","currentDisabilityStatus","otherHealthDescription",
+  "abilityHealth","abilitySensory","abilityMotor","abilityCognitive",
+  "abilityCommunication","abilityAcademic","abilitySelfCare","abilitySocialEmotional",
+  "strengthRelationship","strengthEmotion","strengthIllnessAwareness","strengthProblemSolving",
+  "strengthResourceSeeking","strengthSupportSystem","strengthFamilyInteraction","strengthFamilyEconomy",
+  "analysisSelfCare","analysisStudyWork","analysisMobility","analysisTransport","analysisCommunication",
+  "analysisUnderstanding","analysisExpression","analysisInteraction","analysisLeisure",
+  "familyReferral","familyReferralOther","parentExpectation","selfExpectation","selfExpectationAction","selfExpectationNote"
 ];
-const manuals={portal:`<h2>入口平台</h2><p>入口平台會依照登入帳號，自動顯示可使用的系統。</p><ol class="steps"><li>點選「使用 Google 登入」。</li><li>選擇已由管理者加入的 Google 帳號。</li><li>從首頁卡片進入需要的系統。</li></ol><div class="note">入口卡片由管理中心維護，日後修改網址或新增系統，不必再更改首頁程式。</div>`,users:`<h2>老師與權限</h2><h3>新增老師</h3><ol class="steps"><li>進入「管理中心」。</li><li>在老師管理按「新增老師」。</li><li>輸入姓名、Email、身分並勾選可使用的系統。</li><li>按儲存。老師即可用該 Google 帳號登入。</li></ol><h3>停用帳號</h3><p>編輯老師後關閉「啟用帳號」。停用後仍保留原設定，但無法登入。</p>`,systems:`<h2>系統管理</h2><ol class="steps"><li>進入「管理中心」的「系統管理」。</li><li>按「新增系統」，填寫名稱、網址、圖示及排序。</li><li>儲存後首頁會自動出現，不需修改 GitHub 程式。</li></ol><div class="note">停用系統只會讓入口暫時隱藏，不會刪除該系統的資料。</div>`,faq:`<h2>常見問題</h2><h3>新增老師後仍無法登入？</h3><p>請確認 Email 完全相同、帳號為啟用狀態，並已在 Firebase Authentication 加入 GitHub Pages 網域。</p><h3>為什麼老師看不到某套系統？</h3><p>請在老師管理中勾選該系統的權限。管理員預設可查看所有啟用中的系統。</p><h3>子系統裡原本的老師管理呢？</h3><p>目前先保留，等下一階段將各子系統改為讀取 Portal 權限後，再移除重複功能。</p>`};
-
-function bind(){[$("loginBtn"),$("loginBtnLarge")].forEach(b=>b.onclick=login);$("logoutBtn").onclick=logout;$("deniedLogoutBtn").onclick=logout;document.querySelectorAll(".nav-btn").forEach(b=>b.onclick=()=>showPage(b.dataset.page));document.querySelectorAll(".tab-btn").forEach(b=>b.onclick=()=>showTab(b.dataset.tab));document.querySelectorAll(".manual-link").forEach(b=>b.onclick=()=>showManual(b.dataset.manual));$("addUserBtn").onclick=()=>openUserModal();$("addSystemBtn").onclick=()=>openSystemModal();$("syncAnnouncementBtn").onclick=syncAnnouncementPermissions;$("syncActivityBtn").onclick=syncActivityPermissions;$("syncServiceBtn").onclick=syncServicePermissions;$("syncAdministrativeDocumentBtn").onclick=syncAdministrativeDocumentPermissions;$("syncAllBtn").onclick=syncAllPermissions;$("refreshMonitorBtn").onclick=renderMonitor;$("refreshResourcesBtn").onclick=loadResources;$("resourceSearch").oninput=renderResources;$("resourceSystem").onchange=renderResources;$("resourceType").onchange=renderResources;$("addAssistantBtn").onclick=()=>openAssistantModal();$("syncMyAssistantsBtn").onclick=syncMyAssistants;$("closeModalBtn").onclick=closeModal;$("modal").onclick=e=>{if(e.target===$("modal"))closeModal()};}
-async function login(){try{await signInWithPopup(auth,provider)}catch(e){toast("登入失敗："+friendly(e))}} async function logout(){await signOut(auth)}
-function friendly(e){if(e?.code==="auth/popup-closed-by-user")return "登入視窗已關閉";return e?.message||"請稍後再試"}
-
-onAuthStateChanged(auth,async user=>{currentUser=user;try{if(!user){profile=null;showLoggedOut();return}const email=user.email.toLowerCase();const snap=await getDoc(doc(db,"portalUsers",email));if(!snap.exists()||snap.data().enabled===false){showDenied(email);return}profile={id:email,...snap.data()};await Promise.all([loadSystems(),loadUsers()]);showLoggedIn();await updateDoc(doc(db,"portalUsers",email),{lastLoginAt:serverTimestamp()}).catch(()=>{});}catch(e){showDenied(user?.email||"",`讀取權限失敗：${friendly(e)}`)}finally{$("loadingScreen").classList.add("hidden")}});
-function showLoggedOut(){$("loginPage").classList.remove("hidden");$("deniedPage").classList.add("hidden");document.querySelectorAll(".page").forEach(x=>x.classList.add("hidden"));$("mainNav").classList.add("hidden");$("loginBtn").classList.remove("hidden");$("logoutBtn").classList.add("hidden");$("userChip").classList.add("hidden")}
-function showDenied(email,msg){showLoggedOut();$("loginPage").classList.add("hidden");$("deniedPage").classList.remove("hidden");$("deniedMessage").textContent=msg||`帳號 ${email} 尚未加入或已停用，請洽管理者協助。`;$("loginBtn").classList.add("hidden");$("logoutBtn").classList.remove("hidden")}
-function showLoggedIn(){$("loginPage").classList.add("hidden");$("deniedPage").classList.add("hidden");$("mainNav").classList.remove("hidden");$("loginBtn").classList.add("hidden");$("logoutBtn").classList.remove("hidden");$("userChip").classList.remove("hidden");const name=profile.displayName||currentUser.displayName||profile.email;$("userName").textContent=name;$("userRole").textContent=profile.role==="admin"?"系統管理員":profile.role==="assistant"?"協作者":"個管老師";$("userAvatar").textContent=name.slice(0,1);$("welcomeTitle").textContent=`${name}${profile.role==="assistant"?"協作者":"老師"}，您好！`;$("adminNavBtn").classList.toggle("hidden",profile.role!=="admin");$("manualNavBtn").classList.toggle("hidden",profile.role!=="admin");$("resourcesNavBtn").classList.toggle("hidden",profile.role!=="admin");$("assistantNavBtn").classList.toggle("hidden",profile.role==="assistant");renderSystems();renderAdmin();renderAssistants();showPage("home")}
-function showPage(page){document.querySelectorAll(".page").forEach(x=>x.classList.add("hidden"));$(page+"Page")?.classList.remove("hidden");document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.page===page));if(page==="manual")showManual("portal");if(page==="assistants")renderAssistants();if(page==="resources")loadResources()}
-function showTab(tab){$("usersTab").classList.toggle("hidden",tab!=="users");$("systemsTab").classList.toggle("hidden",tab!=="systems");$("monitorTab").classList.toggle("hidden",tab!=="monitor");document.querySelectorAll(".tab-btn").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab));if(tab==="monitor")renderMonitor()}
-function showManual(key){$("manualContent").innerHTML=manuals[key]||manuals.portal;document.querySelectorAll(".manual-link").forEach(b=>b.classList.toggle("active",b.dataset.manual===key))}
-
-async function loadSystems(){let snap=await getDocs(query(collection(db,"systems"),orderBy("order"))).catch(()=>null);systems=snap?.docs.map(d=>({id:d.id,...d.data()}))||[];if(profile?.role==="admin"){const existingIds=new Set(systems.map(s=>s.id));for(const s of defaultSystems.filter(s=>!existingIds.has(s.id)))await setDoc(doc(db,"systems",s.id),{...s,createdAt:serverTimestamp()});if(defaultSystems.some(s=>!existingIds.has(s.id))){snap=await getDocs(query(collection(db,"systems"),orderBy("order")));systems=snap.docs.map(d=>({id:d.id,...d.data()}))}}}
-async function loadUsers(){const snap=await getDocs(collection(db,"portalUsers"));users=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(a.displayName||a.id).localeCompare(b.displayName||b.id,"zh-Hant"))}
-function permissionAliases(id){const map={campaign:["campaign","announcement"],announcement:["campaign","announcement"],event:["event","activity"],activity:["event","activity"],folder_shared:["folder_shared","serviceRecord","service_record"],serviceRecord:["folder_shared","serviceRecord","service_record"]};return map[id]||[id]}
-function friendlySystemName(id,name=""){const map={campaign:"公告系統",announcement:"公告系統",event:"活動系統",activity:"活動系統",folder_shared:"服務紀錄",serviceRecord:"服務紀錄",service_record:"服務紀錄"};return map[id]||name||id}
-function normalizedEmail(value){return String(value||"").trim().toLowerCase()}
-function currentEmail(){return normalizedEmail(profile?.email||currentUser?.email)}
-function markSyncNeeded(){setAnnouncementSyncStatus("人員資料已更新，請重新同步","warn");setActivitySyncStatus("人員資料已更新，請重新同步","warn");setServiceSyncStatus("人員資料已更新，請重新同步","warn");setAdministrativeDocumentSyncStatus("人員資料已更新，請重新同步","warn")}
-function hasPermission(u,id){const p=u?.permissions||{},a=u?.allowedSystems||[];return permissionAliases(id).some(k=>p[k]===true||a.includes(k))}
-function canUse(s){if(!s.enabled)return false;if(profile.role==="admin")return true;return hasPermission(profile,s.id)||s.type==="shared"&&profile.allShared===true}
-function renderSystems(){const list=systems.filter(canUse);$("systemCount").textContent=`可使用 ${list.length} 套系統`;$("systemGrid").innerHTML=list.map(s=>`<a class="system-card" href="${esc(s.url)}" target="_blank" rel="noopener" style="--accent:${esc(s.accent||"#3b82f6")};--accent-soft:${esc(s.accentSoft||"#eff6ff")}"><div class="card-top"><div class="icon">${esc(s.icon||"🔗")}</div><span class="status">使用中</span></div><h2>${esc(s.name||s.title||"未命名系統")}</h2><p>${esc(s.description||"")}</p><div class="enter">進入系統 →</div></a>`).join("");$("emptySystems").classList.toggle("hidden",list.length>0)}
-function renderAdmin(){
-  if(profile?.role!=="admin")return;
-  $("usersList").innerHTML=users.filter(u=>u.role!=="assistant").map(u=>{
-    const allowed=systems.filter(s=>hasPermission(u,s.id)||u.role==="admin").map(s=>friendlySystemName(s.id,s.name));
-    const roleLabel=u.role==="admin"?"系統管理員":"個管老師";
-    return `<div class="admin-row"><div><h4>${esc(u.displayName||u.id)}${u.role==="admin"?" 👑":" 老師"}</h4><p>${esc(u.email||u.id)}｜${roleLabel}｜${u.enabled===false?"已停用":"使用中"}</p><div class="row-tags">${allowed.slice(0,5).map(x=>`<span class="tag">${esc(x)}</span>`).join("")||'<span class="tag off">未設定系統</span>'}</div></div><div class="row-actions"><button class="mini-btn" data-edit-user="${esc(u.id)}">編輯</button><button class="mini-btn danger-mini" data-delete-user="${esc(u.id)}">刪除</button></div></div>`
-  }).join("");
-  $("systemsList").innerHTML=systems.map(s=>`<div class="admin-row"><div><h4>${esc(s.icon||"🔗")} ${esc(s.name)}</h4><p>${esc(s.url||"尚未設定網址")}｜排序 ${esc(s.order??0)}｜${s.enabled===false?"已停用":"使用中"}</p></div><div class="row-actions"><button class="mini-btn" data-edit-system="${esc(s.id)}">編輯</button></div></div>`).join("");
-  document.querySelectorAll("[data-edit-user]").forEach(b=>b.onclick=()=>openUserModal(users.find(x=>x.id===b.dataset.editUser)));
-  document.querySelectorAll("[data-delete-user]").forEach(b=>b.onclick=()=>removePortalUser(users.find(x=>x.id===b.dataset.deleteUser)));
-  document.querySelectorAll("[data-edit-system]").forEach(b=>b.onclick=()=>openSystemModal(systems.find(x=>x.id===b.dataset.editSystem)));
-}
-function openUserModal(u=null){
-  $("modalTitle").textContent=u?"編輯老師":"新增老師";
-  $("modalForm").innerHTML=`<div class="field"><label>姓名</label><input name="displayName" required value="${esc(u?.displayName||"")}"></div><div class="field"><label>Email</label><input name="email" type="email" required ${u?"readonly":""} value="${esc(u?.email||u?.id||"")}"></div><div class="field"><label>身分</label><select name="role"><option value="teacher" ${u?.role!=="admin"?"selected":""}>個管老師</option><option value="admin" ${u?.role==="admin"?"selected":""}>系統管理員</option></select></div><div class="field"><label>可使用的系統</label><div class="system-option-grid">${systems.map(sys=>`<label class="system-option"><input type="checkbox" name="perm" value="${esc(sys.id)}" ${hasPermission(u,sys.id)||u?.role==="admin"?"checked":""}><span class="system-label"><span class="system-icon">${esc(sys.icon||"🔗")}</span><span>${esc(friendlySystemName(sys.id,sys.name))}</span></span></label>`).join("")}</div></div><label class="check-card"><input type="checkbox" name="enabled" ${u?.enabled!==false?"checked":""}> 啟用帳號</label><div class="form-actions"><button type="button" class="btn ghost" id="cancelForm">取消</button><button class="btn primary">儲存</button></div>`;
-  $("modalForm").onsubmit=e=>saveUser(e,u);$("cancelForm").onclick=closeModal;$("modal").classList.remove("hidden")
-}
-async function saveUser(e,u){
-  e.preventDefault();const f=new FormData(e.target),email=normalizedEmail(f.get("email")),perms={};f.getAll("perm").forEach(id=>perms[id]=true);
-  try{await setDoc(doc(db,"portalUsers",email),{displayName:String(f.get("displayName")||"").trim(),email,role:String(f.get("role")||"teacher"),enabled:f.get("enabled")==="on",permissions:perms,updatedAt:serverTimestamp(),...(u?{}:{createdAt:serverTimestamp()})},{merge:true});await loadUsers();renderAdmin();renderAssistants();closeModal();markSyncNeeded();toast("老師資料已儲存")}
-  catch(err){toast("儲存失敗："+friendly(err))}
-}
-async function removePortalUser(u){
-  if(!u)return;
-  if(normalizedEmail(u.email||u.id)===currentEmail())return toast("不能刪除目前登入中的帳號");
-  const owned=users.filter(x=>x.role==="assistant"&&normalizedEmail(x.ownerEmail)===normalizedEmail(u.email||u.id));
-  const extra=owned.length?`\n同時會移除其 ${owned.length} 位協作者帳號。`:"";
-  if(!confirm(`確定刪除「${u.displayName||u.id}」的 Portal 帳號嗎？\n\n請先確認該老師的學生已完成轉移。${extra}\n服務紀錄中的歷史建立者名稱仍會保留。`))return;
-  try{for(const a of owned)await deleteDoc(doc(db,"portalUsers",a.id));await deleteDoc(doc(db,"portalUsers",u.id));await loadUsers();renderAdmin();renderAssistants();markSyncNeeded();toast("帳號已刪除，請執行全部同步")}
-  catch(err){toast("刪除失敗："+friendly(err))}
-}
-function openSystemModal(s=null){$("modalTitle").textContent=s?"編輯系統":"新增系統";$("modalForm").innerHTML=`<div class="field"><label>系統代碼（英文，不可重複）</label><input name="id" required ${s?"readonly":""} value="${esc(s?.id||"")}" placeholder="例如 isp"></div><div class="field"><label>系統名稱</label><input name="name" required value="${esc(s?.name||"")}"></div><div class="field"><label>說明</label><textarea name="description">${esc(s?.description||"")}</textarea></div><div class="field"><label>網址</label><input name="url" type="url" required value="${esc(s?.url||"")}"></div><div class="checkbox-grid"><div class="field"><label>圖示</label><input name="icon" value="${esc(s?.icon||"🔗")}"></div><div class="field"><label>排序</label><input name="order" type="number" value="${esc(s?.order??systems.length+1)}"></div></div><div class="field"><label>類型</label><select name="type"><option value="shared" ${s?.type==="shared"?"selected":""}>共同系統</option><option value="private" ${s?.type!=="shared"?"selected":""}>個別權限系統</option></select></div><label class="check-card"><input type="checkbox" name="enabled" ${s?.enabled!==false?"checked":""}> 啟用系統</label><div class="form-actions"><button type="button" class="btn ghost" id="cancelForm">取消</button><button class="btn primary">儲存</button></div>`;$("modalForm").onsubmit=e=>saveSystem(e,s);$("cancelForm").onclick=closeModal;$("modal").classList.remove("hidden")}
-async function saveSystem(e,s){e.preventDefault();const f=new FormData(e.target),id=String(f.get("id")).trim();try{await setDoc(doc(db,"systems",id),{name:String(f.get("name")).trim(),description:String(f.get("description")).trim(),url:String(f.get("url")).trim(),icon:String(f.get("icon")).trim()||"🔗",order:Number(f.get("order"))||0,type:f.get("type"),enabled:f.get("enabled")==="on",updatedAt:serverTimestamp(),...(s?{}:{createdAt:serverTimestamp()})},{merge:true});await loadSystems();renderSystems();renderAdmin();closeModal();toast("系統資料已儲存")}catch(err){toast("儲存失敗："+friendly(err))}}
-
-function announcementAllowed(u){
-  if(u.enabled===false) return false;
-  if(u.role==="admin") return true;
-  const p=u.permissions||{};
-  return p.campaign===true || p.announcement===true;
-}
-function setAnnouncementSyncStatus(text,cls=""){
-  const el=$("announcementSyncStatus"); if(!el)return;
-  el.textContent=text; el.className=`sync-status ${cls}`.trim();
-}
-async function syncAnnouncementPermissions({silent=false}={}){
-  if(profile?.role!=="admin") return toast("只有最高管理者可以同步權限");
-  const btn=$("syncAnnouncementBtn");
-  try{
-    btn.disabled=true; btn.textContent="同步中…";
-    setAnnouncementSyncStatus("請登入公告平台 Firebase 進行同步","warn");
-    let childUser=announcementAuth.currentUser;
-    if(!childUser) childUser=(await signInWithPopup(announcementAuth,announcementProvider)).user;
-    if(String(childUser.email||"").toLowerCase()!==String(currentUser.email||"").toLowerCase()){
-      await signOut(announcementAuth);
-      throw new Error("Portal 與公告平台登入的 Google 帳號不同，請使用同一個最高管理者帳號。");
-    }
-    await loadUsers();
-    const permitted=users.filter(announcementAllowed);
-    const superAdmins=permitted.filter(u=>u.role==="admin").map(u=>normalizedEmail(u.email||u.id));
-    const teachers=permitted.filter(u=>u.role==="teacher").map(u=>normalizedEmail(u.email||u.id));
-    const assistants=permitted.filter(u=>u.role==="assistant").map(u=>normalizedEmail(u.email||u.id));
-    const mapped=permitted.map(u=>({name:u.displayName||u.email||u.id,email:normalizedEmail(u.email||u.id),role:u.role==="admin"?"superAdmin":u.role==="assistant"?"assistant":"teacher",ownerEmail:u.role==="assistant"?normalizedEmail(u.ownerEmail):"",source:"portal"}));
-    await setDoc(doc(announcementDb,"settings","admins"),{
-      users:mapped,superAdmins,teachers,assistants,updatedAt:serverTimestamp(),syncedFrom:"must-resource-center-portal"
-    },{merge:false});
-    setAnnouncementSyncStatus(`同步完成：${permitted.length} 位可使用公告平台`,"ok");
-    if(!silent)toast("公告平台權限已同步");return true;
-  }catch(err){
-    console.error(err); setAnnouncementSyncStatus("同步失敗："+friendly(err),"error"); if(!silent)toast("同步失敗："+friendly(err));throw err;
-  }finally{btn.disabled=false;btn.textContent="🔄 同步公告權限";}
-}
-
-
-function myAllowedSystemIds(){
-  if(profile?.role==="admin") return systems.map(s=>s.id);
-  return systems.filter(s=>hasPermission(profile,s.id)).map(s=>s.id);
-}
-function renderAssistants(){
-  if(!profile)return; const owner=currentEmail(); const mine=users.filter(u=>u.role==="assistant"&&normalizedEmail(u.ownerEmail)===owner);
-  const box=$("assistantsList"); if(!box)return;
-  box.innerHTML=mine.length?mine.map(u=>{const allowed=systems.filter(s=>hasPermission(u,s.id)).map(s=>s.name);return `<div class="admin-row"><div><h4>${esc(u.displayName||u.id)} 協作者</h4><p>${esc(u.email||u.id)}｜${u.enabled===false?"已停用":"使用中"}</p><div class="row-tags">${allowed.map(x=>`<span class="tag">${esc(x)}</span>`).join("")||'<span class="tag off">未設定系統</span>'}</div></div><div class="row-actions"><button class="mini-btn" data-edit-assistant="${esc(u.id)}">編輯</button><button class="mini-btn danger-mini" data-delete-assistant="${esc(u.id)}">刪除</button></div></div>`}).join(""):'<div class="empty-state">目前尚未新增小幫手。</div>';
-  document.querySelectorAll("[data-edit-assistant]").forEach(b=>b.onclick=()=>openAssistantModal(users.find(x=>x.id===b.dataset.editAssistant)));document.querySelectorAll("[data-delete-assistant]").forEach(b=>b.onclick=()=>removeAssistant(users.find(x=>x.id===b.dataset.deleteAssistant)));
-}
-function openAssistantModal(u=null){
-  const allowedIds=myAllowedSystemIds(); const allowedSystems=systems.filter(s=>allowedIds.includes(s.id));
-  $("modalTitle").textContent=u?"編輯小幫手":"新增小幫手";
-  $("modalForm").innerHTML=`<div class="field"><label>姓名</label><input name="displayName" required value="${esc(u?.displayName||"")}"></div><div class="field"><label>Email</label><input name="email" type="email" required ${u?"readonly":""} value="${esc(u?.email||u?.id||"")}"></div><div class="owner-note">隸屬老師：${esc(profile.displayName||profile.email)}</div><div class="field"><label>可使用的系統</label><div class="system-option-grid">${allowedSystems.map(sys=>`<label class="system-option"><input type="checkbox" name="perm" value="${esc(sys.id)}" ${hasPermission(u,sys.id)?"checked":""}><span class="system-label"><span class="system-icon">${esc(sys.icon||"🔗")}</span><span>${esc(friendlySystemName(sys.id,sys.name))}</span></span></label>`).join("")}</div></div><label class="check-card"><input type="checkbox" name="enabled" ${u?.enabled!==false?"checked":""}> 啟用帳號</label><div class="form-actions"><button type="button" class="btn ghost" id="cancelForm">取消</button><button class="btn primary">儲存</button></div>`;
-  $("modalForm").onsubmit=e=>saveAssistant(e,u);$("cancelForm").onclick=closeModal;$("modal").classList.remove("hidden");
-}
-async function saveAssistant(e,u){
-  e.preventDefault();const f=new FormData(e.target),email=normalizedEmail(f.get("email")),perms={},allowed=new Set(myAllowedSystemIds()),owner=currentEmail();f.getAll("perm").forEach(id=>{if(allowed.has(id))perms[id]=true});
-  if(!owner)return toast("找不到目前登入老師的 Email，請登出後重新登入");
-  try{await setDoc(doc(db,"portalUsers",email),{displayName:String(f.get("displayName")||"").trim(),email,role:"assistant",ownerEmail:owner,enabled:f.get("enabled")==="on",permissions:perms,updatedAt:serverTimestamp(),...(u?{}:{createdAt:serverTimestamp()})},{merge:true});await loadUsers();renderAssistants();if(profile.role==="admin")renderAdmin();closeModal();markSyncNeeded();toast("協作者資料已儲存")}
-  catch(err){toast("儲存失敗："+friendly(err))}
-}
-async function removeAssistant(u){
-  if(!u)return;if(!confirm(`確定刪除協作者「${u.displayName||u.id}」嗎？\n其已建立的歷史紀錄仍會保留姓名與 Email。`))return;
-  try{await deleteDoc(doc(db,"portalUsers",u.id));await loadUsers();renderAssistants();if(profile.role==="admin")renderAdmin();markSyncNeeded();toast("協作者已刪除，請重新同步權限")}
-  catch(err){toast("刪除失敗："+friendly(err))}
-}
-function activityAllowed(u){if(u.enabled===false)return false;if(u.role==="admin")return true;const p=u.permissions||{};return p.event===true||p.activity===true;}
-function setActivitySyncStatus(text,cls=""){const el=$("activitySyncStatus");if(!el)return;el.textContent=text;el.className=`sync-status ${cls}`.trim();}
-async function syncActivityPermissions({silent=false}={}){
-  if(profile?.role!=="admin")return toast("只有最高管理者可以同步權限");const btn=$("syncActivityBtn");
-  try{btn.disabled=true;btn.textContent="同步中…";setActivitySyncStatus("請登入活動平台 Firebase 進行同步","warn");let childUser=activityAuth.currentUser;if(!childUser)childUser=(await signInWithPopup(activityAuth,activityProvider)).user;if(String(childUser.email||"").toLowerCase()!==String(currentUser.email||"").toLowerCase()){await signOut(activityAuth);throw new Error("Portal 與活動平台登入的 Google 帳號不同，請使用同一個最高管理者帳號。");}await loadUsers();const permitted=users.filter(activityAllowed);const emails=permitted.map(u=>String(u.email||u.id).toLowerCase());await setDoc(doc(activityDb,"settings","admins"),{emails,users:permitted.map(u=>({name:u.displayName||u.email||u.id,email:String(u.email||u.id).toLowerCase(),role:u.role,ownerEmail:u.ownerEmail||"",source:"portal"})),updatedAt:serverTimestamp(),syncedFrom:"must-resource-center-portal"},{merge:true});setActivitySyncStatus(`同步完成：${permitted.length} 位可使用活動平台`,"ok");if(!silent)toast("活動平台權限已同步");return true}catch(err){console.error(err);setActivitySyncStatus("同步失敗："+friendly(err),"error");if(!silent)toast("同步失敗："+friendly(err));throw err}finally{btn.disabled=false;btn.textContent="🔄 同步活動權限";}
-}
-
-
-function serviceAllowed(u){if(u.enabled===false)return false;if(u.role==="admin")return true;return hasPermission(u,"folder_shared")||hasPermission(u,"serviceRecord")}
-function setServiceSyncStatus(text,cls=""){const el=$("serviceSyncStatus");if(!el)return;el.textContent=text;el.className=`sync-status ${cls}`.trim();}
-async function syncMyAssistants(){
-  if(profile?.role==="assistant")return;
-  const btn=$("syncMyAssistantsBtn");
-  const owner=currentEmail();
-  try{
-    btn.disabled=true;btn.textContent="同步中…";
-    let childUser=serviceAuth.currentUser;
-    if(!childUser)childUser=(await signInWithPopup(serviceAuth,serviceProvider)).user;
-    if(normalizedEmail(childUser.email)!==owner){
-      await signOut(serviceAuth);
-      throw new Error("Portal 與服務紀錄登入帳號不同，請使用同一個個管老師帳號。");
-    }
-    await loadUsers();
-    const mine=users.filter(u=>u.role==="assistant"&&normalizedEmail(u.ownerEmail)===owner);
-    const permitted=mine.filter(u=>u.enabled!==false&&serviceAllowed(u));
-    const expected=new Set(permitted.map(u=>normalizedEmail(u.email||u.id)));
-
-    // 清除已取消服務紀錄權限或已刪除的所屬協作者。
-    const oldSnap=await getDocs(query(collection(serviceDb,"serviceAssistants"),where("ownerEmail","==",owner)));
-    for(const old of oldSnap.docs){if(!expected.has(normalizedEmail(old.id)))await deleteDoc(old.ref);}
-
-    for(const u of permitted){
-      const email=normalizedEmail(u.email||u.id);
-      await setDoc(doc(serviceDb,"serviceAssistants",email),{
-        email,displayName:u.displayName||email,name:u.displayName||email,
-        role:"assistant",ownerEmail:owner,enabled:true,source:"portal-self-sync",updatedAt:serverTimestamp()
-      },{merge:false});
-    }
-    toast(`已同步 ${permitted.length} 位協作者至服務紀錄`);
-  }catch(err){console.error(err);toast("協作者同步失敗："+friendly(err));}
-  finally{btn.disabled=false;btn.textContent="🔄 同步我的協作者";}
-}
-
-async function syncServicePermissions({silent=false}={}){
-  if(profile?.role!=="admin")throw new Error("只有系統管理員可以同步權限");const btn=$("syncServiceBtn");
-  try{btn.disabled=true;btn.textContent="同步中…";setServiceSyncStatus("請登入服務紀錄 Firebase","warn");let childUser=serviceAuth.currentUser;if(!childUser)childUser=(await signInWithPopup(serviceAuth,serviceProvider)).user;if(String(childUser.email||"").toLowerCase()!==String(currentUser.email||"").toLowerCase()){await signOut(serviceAuth);throw new Error("Portal 與服務紀錄登入帳號不同，請使用同一個系統管理員帳號。");}await loadUsers();const permitted=users.filter(serviceAllowed);const userMap={};permitted.forEach(u=>{const email=String(u.email||u.id).toLowerCase();userMap[email]={email,displayName:u.displayName||email,name:u.displayName||email,enabled:u.enabled!==false,role:u.role==="assistant"?"assistant":u.role==="admin"?"admin":"teacher",ownerEmail:u.role==="assistant"?normalizedEmail(u.ownerEmail):email,source:"portal"};});await setDoc(doc(serviceDb,"settings","serviceAccess"),{users:userMap,updatedAt:serverTimestamp(),syncedFrom:"must-resource-center-portal"},{merge:false});setServiceSyncStatus(`同步完成：${permitted.length} 位可使用服務紀錄`,'ok');if(!silent)toast("服務紀錄權限已同步");return true;}catch(err){console.error(err);setServiceSyncStatus("同步失敗："+friendly(err)+"（請確認已發布 v1.0.5 服務紀錄規則）","error");if(!silent)toast("同步失敗："+friendly(err));throw err;}finally{btn.disabled=false;btn.textContent="同步服務";}
-}
-function administrativeDocumentAllowed(u){if(u.enabled===false)return false;if(u.role==="admin")return true;return hasPermission(u,"administrativeDocuments")}
-function setAdministrativeDocumentSyncStatus(text,cls=""){const el=$("administrativeDocumentSyncStatus");if(!el)return;el.textContent=text;el.className=`sync-status ${cls}`.trim()}
-async function syncAdministrativeDocumentPermissions({silent=false}={}){
-  if(profile?.role!=="admin")throw new Error("只有系統管理員可以同步權限");const btn=$("syncAdministrativeDocumentBtn");
-  try{btn.disabled=true;btn.textContent="同步中…";setAdministrativeDocumentSyncStatus("請登入行政文書 Firebase","warn");let childUser=administrativeDocumentAuth.currentUser;if(!childUser)childUser=(await signInWithPopup(administrativeDocumentAuth,administrativeDocumentProvider)).user;if(normalizedEmail(childUser.email)!==currentEmail()){await signOut(administrativeDocumentAuth);throw new Error("Portal 與行政文書登入帳號不同，請使用同一個系統管理員帳號。")}await loadUsers();const permitted=users.filter(administrativeDocumentAllowed);const userMap={};permitted.forEach(u=>{const email=normalizedEmail(u.email||u.id);userMap[email]={email,displayName:u.displayName||email,enabled:true,role:u.role==="admin"?"admin":u.role==="assistant"?"assistant":"teacher",ownerEmail:u.role==="assistant"?normalizedEmail(u.ownerEmail):email,source:"portal"}});await setDoc(doc(administrativeDocumentDb,"settings","adminAccess"),{users:userMap,updatedAt:serverTimestamp(),syncedFrom:"must-resource-center-portal"},{merge:false});setAdministrativeDocumentSyncStatus(`同步完成：${permitted.length} 位可使用行政文書`,"ok");if(!silent)toast("行政文書權限已同步");return true}catch(err){console.error(err);setAdministrativeDocumentSyncStatus("同步失敗："+friendly(err),"error");if(!silent)toast("同步失敗："+friendly(err));throw err}finally{btn.disabled=false;btn.textContent="同步行政文書"}
-}
-async function syncAllPermissions(){const btn=$("syncAllBtn");btn.disabled=true;btn.textContent="同步中…";let ok=0;for(const fn of [syncAnnouncementPermissions,syncActivityPermissions,syncServicePermissions,syncAdministrativeDocumentPermissions]){try{await fn({silent:true});ok++}catch(e){console.error(e)}}btn.disabled=false;btn.textContent="🔄 全部同步";toast(ok===4?"四套系統權限已全部同步":`已完成 ${ok}/4 套，請查看失敗提示`)}
-
-const monitorDefinitions=[
- {key:"campaign",title:"公告系統",icon:"📢",repo:"must-resource-platform",version:"v4.2.1"},
- {key:"event",title:"活動系統",icon:"🎉",repo:"must-activity-system",version:"v3.1.0"},
- {key:"folder_shared",title:"服務紀錄",icon:"📋",repo:"must-service-record-system",version:"v1.0.4"},
- {key:"administrativeDocuments",title:"行政文書",icon:"📝",repo:"must-admin-document-system",version:"v1.0 正式版"}
+const AI_SERVICE_FIELDS=[
+  "studentNeedsAssessment","learningSupport","learningSupportNote","emotionalSupport","emotionalSupportNote",
+  "environmentSupport","environmentSupportNote","academicPlanningSupport","academicPlanningSupportNote",
+  "careerSupport","careerSupportNote","adminSupport","adminSupportNote","supportAdjustment","supportAdjustmentNote",
+  "relatedServices","relatedServicesNote","otherServiceSuggestions","otherServiceSuggestionsNote"
 ];
-function formatMB(kb){return Math.max(0,Number(kb||0)/1024)}
-async function renderMonitor(){const box=$("monitorGrid");if(!box||profile?.role!=="admin")return;box.innerHTML=monitorDefinitions.map(x=>`<article class="monitor-card loading"><div class="monitor-head"><span>${x.icon}</span><div><h4>${x.title}</h4><small>${x.version}</small></div></div><p>正在讀取 GitHub…</p></article>`).join("");const cards=await Promise.all(monitorDefinitions.map(async x=>{try{const r=await fetch(`https://api.github.com/repos/f00931must-hash/${x.repo}`,{headers:{Accept:"application/vnd.github+json"}});if(!r.ok)throw new Error(`HTTP ${r.status}`);const d=await r.json(),mb=formatMB(d.size),pct=Math.min(100,mb/1000*100);return {...x,ok:true,mb,pct,updated:d.pushed_at,branch:d.default_branch||"main"}}catch(e){return {...x,ok:false,error:e.message}}}));box.innerHTML=cards.map(x=>x.ok?`<article class="monitor-card"><div class="monitor-head"><span>${x.icon}</span><div><h4>${x.title}</h4><small>${x.version}・${x.branch}</small></div><span class="health ok">正常</span></div><div class="usage-row"><span>GitHub Repository</span><strong>${x.mb.toFixed(1)} / 1000 MB</strong></div><div class="progress"><i style="width:${x.pct.toFixed(1)}%"></i></div><div class="monitor-meta"><span>Firestore：目前無法由純前端讀取</span><span>更新：${new Date(x.updated).toLocaleString("zh-TW")}</span></div></article>`:`<article class="monitor-card"><div class="monitor-head"><span>${x.icon}</span><div><h4>${x.title}</h4><small>${x.version}</small></div><span class="health error">無法讀取</span></div><p>${esc(x.error)}</p></article>`).join("")}
+function aiFieldLabel(name){
+  const el=document.querySelector(`[name="${name}"]`);
+  if(!el)return name;
+  const label=el.closest("label");
+  const text=label?.childNodes?.[0]?.textContent?.trim();
+  return text||name;
+}
+function buildAiSource(mode){
+  const values=formData();
+  const fields=mode==="service-evaluation"?AI_SERVICE_FIELDS:AI_NEEDS_FIELDS;
+  return fields.map(name=>{
+    const value=values[name];
+    const text=Array.isArray(value)?value.filter(Boolean).join("、"):String(value||"").trim();
+    return text?`${aiFieldLabel(name)}：${text}`:"";
+  }).filter(Boolean).join("\n");
+}
+function attachUndoButton(button){
+  const buttonGroup=document.createElement("div");
+  buttonGroup.className="ai-button-group";
+  button.parentNode.insertBefore(buttonGroup,button);
+  buttonGroup.appendChild(button);
+  const undoButton=document.createElement("button");
+  undoButton.type="button";
+  undoButton.className="ai-undo-btn";
+  undoButton.textContent="↩ 還原";
+  undoButton.disabled=true;
+  buttonGroup.appendChild(undoButton);
+  undoButton.addEventListener("click",()=>{
+    const textarea=document.querySelector(`[name="${button.dataset.aiTarget}"]`);
+    if(!textarea||typeof undoButton.dataset.original!=="string")return;
+    textarea.value=undoButton.dataset.original;
+    textarea.dispatchEvent(new Event("input",{bubbles:true}));
+    delete undoButton.dataset.original;
+    undoButton.disabled=true;
+  });
+  return undoButton;
+}
 
-function bytesLabel(value){const n=Number(value||0);if(n<1024)return `${n} B`;if(n<1024**2)return `${(n/1024).toFixed(1)} KB`;if(n<1024**3)return `${(n/1024**2).toFixed(1)} MB`;return `${(n/1024**3).toFixed(2)} GB`;}
-function resourceKind(f){const n=String(f.name||f.path||"").toLowerCase();return /\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(n)?"image":"attachment";}
-function resourceSystem(f){const parts=String(f.path||"").split("/");return parts[1]||"shared";}
-async function resourceRequest(path,options={}){const token=await currentUser.getIdToken();const r=await fetch(RESOURCE_API+path,{...options,headers:{Authorization:`Bearer ${token}`,...(options.body?{"Content-Type":"application/json"}:{}),...(options.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok||d.ok===false)throw new Error(d.error||`HTTP ${r.status}`);return d;}
-async function loadResources(){if(profile?.role!=="admin")return;const status=$("resourceStatus"),list=$("resourceList");status.textContent="正在讀取檔案…";status.className="sync-status warn";list.innerHTML='<div class="empty-state">讀取中…</div>';try{const [fileData,statData]=await Promise.all([resourceRequest("/files?path=uploads&recursive=1"),resourceRequest("/stats")]);resourceFiles=fileData.items||[];const images=resourceFiles.filter(x=>resourceKind(x)==="image");$("assetUsed").textContent=bytesLabel(statData.usage?.usedBytes);$("assetCount").textContent=resourceFiles.length;$("assetImageCount").textContent=images.length;$("assetAttachmentCount").textContent=resourceFiles.length-images.length;status.textContent=`讀取完成：${resourceFiles.length} 個檔案`;status.className="sync-status ok";renderResources();}catch(err){console.error(err);status.textContent="讀取失敗："+friendly(err);status.className="sync-status error";list.innerHTML='<div class="empty-state">無法讀取共用檔案庫。</div>';}}
-function renderResources(){const box=$("resourceList");if(!box)return;const q=String($("resourceSearch")?.value||"").trim().toLowerCase(),sys=$("resourceSystem")?.value||"",kind=$("resourceType")?.value||"";const rows=resourceFiles.filter(f=>(!q||String(f.name+" "+f.path).toLowerCase().includes(q))&&(!sys||resourceSystem(f)===sys)&&(!kind||resourceKind(f)===kind));box.innerHTML=rows.length?rows.map(f=>`<div class="resource-row"><div class="resource-preview">${resourceKind(f)==="image"&&f.url?`<img src="${esc(f.url)}" alt="">`:"📎"}</div><div class="resource-info"><strong>${esc(f.name)}</strong><span>${esc(f.path)}</span><small>${friendlySystemName(resourceSystem(f),resourceSystem(f))}｜${resourceKind(f)==="image"?"圖片":"附件"}｜${bytesLabel(f.size)}</small></div><div class="row-actions">${f.url?`<a class="mini-btn" href="${esc(f.url)}" target="_blank" rel="noopener">開啟</a>`:""}<button class="mini-btn danger-mini" data-delete-resource="${esc(f.path)}">刪除</button></div></div>`).join(""):'<div class="empty-state">沒有符合條件的檔案。</div>';document.querySelectorAll("[data-delete-resource]").forEach(b=>b.onclick=()=>deleteResource(b.dataset.deleteResource));}
-async function deleteResource(path){const f=resourceFiles.find(x=>x.path===path);if(!f)return;if(!confirm(`確定永久刪除「${f.name}」嗎？\n\n若公告或活動仍在使用此檔案，刪除後將無法顯示。`))return;try{btoa('');await resourceRequest("/delete",{method:"POST",body:JSON.stringify({path:f.path,name:f.name})});resourceFiles=resourceFiles.filter(x=>x.path!==path);renderResources();$("assetCount").textContent=resourceFiles.length;$("assetImageCount").textContent=resourceFiles.filter(x=>resourceKind(x)==="image").length;$("assetAttachmentCount").textContent=resourceFiles.filter(x=>resourceKind(x)!=="image").length;toast("檔案已刪除");setTimeout(loadResources,800);}catch(err){toast("刪除失敗："+friendly(err));}}
+document.querySelectorAll(".ai-polish-btn").forEach(button=>{
+  const undoButton=attachUndoButton(button);
 
-function closeModal(){$("modal").classList.add("hidden");$("modalForm").innerHTML=""}function toast(msg){$("toast").textContent=msg;$("toast").classList.remove("hidden");clearTimeout(window.__toast);window.__toast=setTimeout(()=>$("toast").classList.add("hidden"),3000)}
-bind();
+  button.addEventListener("click",async()=>{
+    const textarea=document.querySelector(`[name="${button.dataset.aiTarget}"]`);
+    const original=textarea?.value.trim()||"";
+    if(!original){ alert("請先輸入內容，再使用 AI 潤飾。"); textarea?.focus(); return; }
+    const oldLabel=button.textContent;
+    button.disabled=true; button.textContent="AI 潤飾中…";
+    try{
+      const response=await fetch(ISP_AI_ENDPOINT,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({text:original,section:button.dataset.aiSection,documentType:"ISP"})
+      });
+      let payload={};
+      try{ payload=await response.json(); }catch{}
+      if(!response.ok) throw new Error(payload?.error||payload?.message||`AI 服務暫時無法使用（${response.status}）`);
+      const polished=getIspAiText(payload);
+      if(!polished) throw new Error("AI 沒有回傳可用內容");
+      undoButton.dataset.original=original;
+      textarea.value=polished;
+      textarea.dispatchEvent(new Event("input",{bubbles:true}));
+      undoButton.disabled=false;
+    }catch(error){
+      console.error(error);
+      alert(error?.message||"AI 潤飾失敗，請稍後再試。");
+    }finally{ button.disabled=false; button.textContent=oldLabel; }
+  });
+});
+
+document.querySelectorAll(".ai-generate-btn").forEach(button=>{
+  const undoButton=attachUndoButton(button);
+  button.addEventListener("click",async()=>{
+    const textarea=document.querySelector(`[name="${button.dataset.aiTarget}"]`);
+    const source=buildAiSource(button.dataset.aiMode);
+    if(!source){alert("目前沒有足夠的已填資料可供 AI 產生，請先填寫前面的相關欄位。");return;}
+    const original=textarea?.value||"";
+    const oldLabel=button.textContent;
+    button.disabled=true;button.textContent="AI 產生中…";
+    try{
+      const response=await fetch(ISP_AI_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:source,mode:button.dataset.aiMode,documentType:"ISP"})});
+      let payload={};try{payload=await response.json();}catch{}
+      if(!response.ok)throw new Error(payload?.error||payload?.message||`AI 服務暫時無法使用（${response.status}）`);
+      const generated=getIspAiText(payload);
+      if(!generated)throw new Error("AI 沒有回傳可用內容");
+      undoButton.dataset.original=original;
+      textarea.value=generated;
+      textarea.dispatchEvent(new Event("input",{bubbles:true}));
+      undoButton.disabled=false;
+    }catch(error){console.error(error);alert(error?.message||"AI 產生失敗，請稍後再試。");}
+    finally{button.disabled=false;button.textContent=oldLabel;}
+  });
+});
+
+$("downloadBtn").onclick=async()=>{
+  try{
+    if (typeof window.PizZip === "undefined") throw new Error("Word 元件 PizZip 載入失敗，請重新整理頁面後再試");
+    if (typeof window.docxtemplater === "undefined") throw new Error("Word 元件 Docxtemplater 載入失敗，請重新整理頁面後再試");
+    if (typeof window.saveAs === "undefined") throw new Error("下載元件 FileSaver 載入失敗，請重新整理頁面後再試");
+    const f=formData();
+    const res=await fetch("./templates/ISP-template-v0.4.2.docx?v=1.0.4",{cache:"no-store"});
+    if(!res.ok) throw new Error("無法讀取 ISP Word 母版");
+    const buf=await res.arrayBuffer();
+    const zip=new window.PizZip(buf);
+    const docx=new window.docxtemplater(zip,{paragraphLoop:true,linebreaks:true,nullGetter:()=>""});
+    docx.render(exportData(f));
+    const blob=docx.getZip().generate({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document"});
+    const safe=(f.studentName||"未命名").replace(/[\\/:*?"<>|]/g,"_");
+    saveAs(blob,`${safe}_新生ISP總表.docx`);
+  }catch(err){ console.error(err); alert(`Word 產生失敗：${err?.message||err}`); }
+};

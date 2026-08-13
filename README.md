@@ -1,19 +1,34 @@
-# Portal v3.1.0 穩定修正版
+# MUST 行政文書製作系統 v0.1.0
 
-## 修正
-- 修正新增協作者時 `ownerEmail: undefined`。
-- 協作者與老師權限卡片只顯示友善系統名稱。
-- 老師與協作者新增刪除按鈕。
-- 刪除老師時會提醒先完成學生轉移，並同步移除其 Portal 協作者帳號。
-- 服務紀錄同步錯誤訊息更明確。
-- Firestore 容量文字改為「目前無法由純前端讀取」，避免誤認為系統故障。
+這一版先建立「入口 + Google 登入 + 每位老師自己的 Firestore 草稿 + ISP 基礎編輯器」。
 
-## 服務紀錄同步必要步驟
-請到「服務紀錄 Firebase → Firestore → Rules」，貼上本包內：
+## 先做的 Firebase 設定
+1. Firebase Console 建立全新專案（建議：MUST Administrative Document System）。
+2. Authentication > Sign-in method > Google：啟用。
+3. Firestore Database：建立資料庫。
+4. Project settings > Your apps > Web：建立 Web App。
+5. 將設定貼進 `firebase-config.js`。
+6. Firestore Rules 貼上本專案的 `firestore.rules` 並 Publish。
+7. Authentication > Settings > Authorized domains：之後加入 GitHub Pages 網域。
 
-`SERVICE-RECORD-firestore-v1.0.5.rules`
+## GitHub 設定
+1. 建立新的 Repository，例如 `must-admin-document-system`。
+2. 上傳本 ZIP 解壓後的所有檔案。
+3. Settings > Pages > Deploy from a branch > main / root。
+4. 等 GitHub Pages 網址產生。
+5. 把該網域加入 Firebase Authorized domains。
 
-並按 Publish。這版允許既有 `authorizedTeachers/{uid}` 啟用帳號完成第一次建立 `settings/serviceAccess`；建立後仍由 serviceAccess 管理員控制更新。
+## 本版已完成
+- 行政表單製作入口
+- Google 登入/登出
+- 每位老師只讀寫自己的 `adminDocuments`
+- ISP 草稿建立、修改、列表
+- 民國學年度/學期自動預設（8/1 第一學期、3/1 第二學期）
+- 已附 `templates/ISP-template-v1.docx`
 
-## Portal Firebase
-Portal 自己的 Rules 請貼上本包內 `firestore.rules` 並發布。
+## 下一階段
+- 對 ISP Word 母版建立精準欄位對應
+- 完整 12 頁 ISP 網頁欄位
+- 下載 Word
+- ISP 現況能力摘要 AI 潤飾（沿用既有 Cloudflare Worker，新增 ISP 專用 route/prompt）
+- 複製上一學期 ISP
