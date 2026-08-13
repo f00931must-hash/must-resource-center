@@ -45,12 +45,12 @@ window.PORTAL_SYSTEMS = [
     accentSoft: "#fef3c7"
   },
   {
-    title: "文件與行政工具",
-    description: "未來整合 ISP、ITP、合理調整與文件產生功能。",
+    title: "行政文書系統",
+    description: "製作新生 ISP 總表，並管理個人的行政文書。",
     icon: "📝",
-    url: "",
-    enabled: false,
-    status: "未來新增",
+    url: "https://f00931must-hash.github.io/must-admin-document-system/",
+    enabled: true,
+    status: "使用中",
     accent: "#10b981",
     accentSoft: "#d1fae5"
   }
