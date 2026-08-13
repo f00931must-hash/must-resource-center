@@ -39,3 +39,14 @@ export const serviceRecordFirebaseConfig = {
   messagingSenderId: "1066337913135",
   appId: "1:1066337913135:web:3080eb1e05b176de77b9da"
 };
+
+
+// 行政文書 Firebase：只供 Portal 同步行政文書使用權限。
+export const administrativeDocumentFirebaseConfig = {
+  apiKey: "AIzaSyDvH2-sryPBG-_TM6XT3tjZHJ6O0gfXLtI",
+  authDomain: "must-administrative-document.firebaseapp.com",
+  projectId: "must-administrative-document",
+  storageBucket: "must-administrative-document.firebasestorage.app",
+  messagingSenderId: "640842705380",
+  appId: "1:640842705380:web:f6a9a44390f31d82d9fff1"
+};

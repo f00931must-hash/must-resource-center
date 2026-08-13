@@ -7,8 +7,14 @@
 - 管理員首次開啟本版本時，系統只會補建缺少的行政文書入口，不會覆蓋既有入口或老師權限設定。
 - 系統監控新增行政文書 GitHub Repository 狀態。
 
-## 上線方式
+## 權限整合上線順序（請依序操作）
 
-將本資料夾內容覆蓋入口 GitHub Repository 後發布即可。首次請由系統管理員登入一次，入口會自動建立；再到「管理中心 → 老師管理」勾選需要使用行政文書的老師。
+1. 到行政文書 Firebase 的 Firestore Rules，先貼上行政文書包內的 `firestore-bootstrap.rules` 並發布。
+2. 將本資料夾內容覆蓋「總入口」GitHub Repository；同時將行政文書包覆蓋「行政文書」GitHub Repository。
+3. 用系統管理員登入總入口；到「管理中心 → 老師管理」勾選需要使用行政文書的帳號。
+4. 按「同步行政文書」；確認顯示同步完成。
+5. 立即回到行政文書 Firebase 的 Firestore Rules，改貼行政文書包內的正式 `firestore.rules` 並發布。
 
-本次不需更動 Portal 或服務紀錄的 Firestore Rules，也不會修改服務紀錄資料。
+完成後，行政文書權限由總入口控制；取消勾選並重新同步後，該帳號即使使用直接網址也不能進入。
+
+本次不需更動 Portal、公告、活動或服務紀錄的 Firestore Rules，也不會修改這些正式系統的資料。
