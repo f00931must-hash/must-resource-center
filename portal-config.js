@@ -53,5 +53,15 @@ window.PORTAL_SYSTEMS = [
     status: "使用中",
     accent: "#10b981",
     accentSoft: "#d1fae5"
+  },
+  {
+    title: "學分檢核系統",
+    description: "管理學生時序表、歷史成績與畢業學分檢核。",
+    icon: "🎓",
+    url: "https://f00931must-hash.github.io/must-credit-checker/",
+    enabled: true,
+    status: "使用中",
+    accent: "#f97316",
+    accentSoft: "#ffedd5"
   }
 ];

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>明新科技大學｜資源教室行政平台</title>
   <meta name="description" content="明新科技大學資源教室行政平台入口網站">
-  <link rel="stylesheet" href="./style.css?v=3.2.1">
+  <link rel="stylesheet" href="./style.css?v=3.3.0">
 </head>
 <body>
   <div id="loadingScreen" class="loading-screen">
@@ -81,12 +81,13 @@
         </div>
         <div id="usersTab" class="tab-panel">
           <div class="panel-toolbar"><div><h3>老師帳號</h3><p>新增、停用帳號，並設定可使用的系統。</p></div><button id="addUserBtn" class="btn primary">＋ 新增老師</button></div>
-          <div class="sync-toolbar"><div><strong>權限同步</strong><span>老師或協作者資料有變更後，按一次即可同步四套系統。</span></div><button id="syncAllBtn" class="btn primary">🔄 全部同步</button></div>
+          <div class="sync-toolbar"><div><strong>權限同步</strong><span>老師或協作者資料有變更後，按一次即可同步五套系統。</span></div><button id="syncAllBtn" class="btn primary">🔄 全部同步</button></div>
           <div class="sync-grid sync-grid-three">
           <div class="sync-panel"><div><h3>📢 公告平台</h3><p>同步公告後台權限。</p><div id="announcementSyncStatus" class="sync-status">尚未同步</div></div><button id="syncAnnouncementBtn" class="btn ghost">同步公告</button></div>
           <div class="sync-panel"><div><h3>🎉 活動平台</h3><p>同步活動後台權限。</p><div id="activitySyncStatus" class="sync-status">尚未同步</div></div><button id="syncActivityBtn" class="btn ghost">同步活動</button></div>
           <div class="sync-panel"><div><h3>📋 服務紀錄</h3><p>同步個管老師與協作者。</p><div id="serviceSyncStatus" class="sync-status">尚未同步</div></div><button id="syncServiceBtn" class="btn ghost">同步服務</button></div>
           <div class="sync-panel"><div><h3>📝 行政文書</h3><p>同步行政文書登入權限。</p><div id="administrativeDocumentSyncStatus" class="sync-status">尚未同步</div></div><button id="syncAdministrativeDocumentBtn" class="btn ghost">同步行政文書</button></div>
+          <div class="sync-panel"><div><h3>🎓 學分檢核</h3><p>同步老師與小幫手權限。</p><div id="creditCheckerSyncStatus" class="sync-status">尚未同步</div></div><button id="syncCreditCheckerBtn" class="btn ghost">同步學分檢核</button></div>
           </div>
           <div id="usersList" class="admin-list"></div>
         </div>
@@ -132,7 +133,7 @@
       </section>
     </main>
 
-    <footer><span>明新科技大學｜學務處健康與諮商中心資源教室</span><span>Portal v3.2.1</span></footer>
+    <footer><span>明新科技大學｜學務處健康與諮商中心資源教室</span><span>Portal v3.3.0</span></footer>
   </div>
 
   <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
@@ -140,6 +141,6 @@
   </div>
   <div id="toast" class="toast hidden"></div>
 
-  <script type="module" src="./app.js?v=3.2.1"></script>
+  <script type="module" src="./app.js?v=3.3.0"></script>
 </body>
 </html>
