@@ -25,6 +25,7 @@ const budgetFirebaseConfig = {
   appId: "1:1044795970310:web:3939115211f2890c280487"
 };
 
+const BUDGET_WORKER_URL="https://must-free-upload-service.f00931-must.workers.dev";
 const normalizedEmail = value => String(value || "").trim().toLowerCase();
 let portalDbRef=null;
 
@@ -55,7 +56,7 @@ function installBudgetSyncPanel(){
   if(!grid) return;
   const panel=document.createElement("div");
   panel.className="sync-panel";
-  panel.innerHTML=`<div><h3>💰 經費系統</h3><p>正式老師依「經費角色」同步；小幫手不同步。</p><div id="budgetSyncStatus" class="sync-status">尚未同步</div></div><button id="budgetSyncBtn" class="btn ghost">同步經費</button>`;
+  panel.innerHTML=`<div><h3>💰 經費系統</h3><p>正式老師依「經費角色」同步；小幫手不同步。附件授權名單會同步至私密附件 Worker。</p><div id="budgetSyncStatus" class="sync-status">尚未同步</div></div><button id="budgetSyncBtn" class="btn ghost">同步經費</button>`;
   grid.appendChild(panel);
 }
 
@@ -76,14 +77,38 @@ async function ensurePortalBudgetAccess(portalDb,adminEmail){
   return usersSnap;
 }
 
+async function syncBudgetWorkerAccess(portalUser,permitted){
+  const token=await portalUser.getIdToken(true);
+  const users=permitted.map(u=>({
+    email:normalizedEmail(u.email||u.id),
+    name:u.displayName||u.name||normalizedEmail(u.email||u.id),
+    role:u.budgetRole==="manager"?"manager":"user",
+    enabled:u.enabled!==false
+  })).filter(u=>u.email);
+
+  const res=await fetch(`${BUDGET_WORKER_URL}/budget-access-sync`,{
+    method:"POST",
+    headers:{
+      "Authorization":`Bearer ${token}`,
+      "content-type":"application/json"
+    },
+    body:JSON.stringify({users})
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok||data.ok===false) throw new Error(data.error||`附件授權同步失敗（${res.status}）`);
+  return data;
+}
+
 async function syncBudgetPermissions(portalDb,portalUser){
   const btn=document.getElementById("budgetSyncBtn");
   if(!btn) return;
   const adminEmail=normalizedEmail(portalUser.email);
+  let workerSynced=false;
+  let workerResult=null;
   try{
     btn.disabled=true;
     btn.textContent="同步中…";
-    setBudgetSyncStatus("請登入經費系統 Firebase","warn");
+    setBudgetSyncStatus("正在同步經費與附件權限…","warn");
 
     const budgetApp=getBudgetApp();
     const budgetAuth=getAuth(budgetApp);
@@ -98,16 +123,14 @@ async function syncBudgetPermissions(portalDb,portalUser){
       throw new Error("Portal 與經費系統登入帳號不同，請使用同一個經費管理員帳號。");
     }
 
-    const managerSnap=await getDoc(doc(budgetDb,"users",adminEmail));
-    if(!managerSnap.exists() || managerSnap.data().enabled!==true || managerSnap.data().role!=="manager"){
-      throw new Error("此帳號目前不是經費系統的經費管理員，無法執行同步。");
-    }
-
     const portalUsersSnap=await ensurePortalBudgetAccess(portalDb,adminEmail);
     const permitted=portalUsersSnap.docs
       .map(d=>({id:d.id,...d.data()}))
       .filter(u=>u.enabled!==false && u.role!=="assistant");
     const expected=new Set(permitted.map(u=>normalizedEmail(u.email||u.id)));
+
+    workerResult=await syncBudgetWorkerAccess(portalUser,permitted);
+    workerSynced=true;
 
     const oldBudgetUsers=await getDocs(collection(budgetDb,"users"));
     const existingMap=new Map(oldBudgetUsers.docs.map(d=>[normalizedEmail(d.id),{ref:d.ref,...d.data()}]));
@@ -130,7 +153,6 @@ async function syncBudgetPermissions(portalDb,portalUser){
         updatedBy:adminEmail
       },{merge:true});
 
-      // 第一次導入時，把既有經費角色回寫到 Portal，之後交接者可直接從入口維護。
       if(!explicitRole){
         await updateDoc(doc(portalDb,"portalUsers",email),{budgetRole:role,budgetRoleUpdatedAt:serverTimestamp()});
       }
@@ -143,12 +165,17 @@ async function syncBudgetPermissions(portalDb,portalUser){
       await setDoc(d.ref,{enabled:false,updatedAt:serverTimestamp(),updatedBy:adminEmail},{merge:true});
     }
 
-    setBudgetSyncStatus(`同步完成：${permitted.length} 位正式老師，其中 ${managerCount} 位經費管理員`,"ok");
-    alert(`經費系統權限同步完成。\n\n正式老師：${permitted.length} 位\n經費管理員：${managerCount} 位\n\n小幫手未同步。`);
+    setBudgetSyncStatus(`同步完成：${permitted.length} 位正式老師，其中 ${managerCount} 位經費管理員；附件授權 ${workerResult?.synced||permitted.length} 位`,"ok");
+    alert(`經費系統權限同步完成。\n\n正式老師：${permitted.length} 位\n經費管理員：${managerCount} 位\n附件授權：${workerResult?.synced||permitted.length} 位\n\n小幫手未同步。`);
   }catch(err){
     console.error("Budget permission sync failed:",err);
-    setBudgetSyncStatus("同步失敗："+(err?.message||"請稍後再試"),"error");
-    alert("經費系統同步失敗："+(err?.message||"請稍後再試"));
+    if(workerSynced){
+      setBudgetSyncStatus(`附件授權已同步 ${workerResult?.synced||""} 位；經費 Firebase 同步暫時失敗：${err?.message||"請稍後再試"}`,"warn");
+      alert(`附件授權名單已同步成功。\n\n但經費 Firebase users 同步暫時失敗：\n${err?.message||"請稍後再試"}\n\n若是今日 Firestore 額度已滿，可待額度重置後再按一次「同步經費」。`);
+    }else{
+      setBudgetSyncStatus("同步失敗："+(err?.message||"請稍後再試"),"error");
+      alert("經費系統同步失敗："+(err?.message||"請稍後再試"));
+    }
   }finally{
     btn.disabled=false;
     btn.textContent="同步經費";
@@ -164,7 +191,7 @@ async function injectBudgetRoleEditor(){
 
   const emailInput=form.querySelector('input[name="email"]');
   const roleInput=form.querySelector('select[name="role"]');
-  if(!emailInput || !roleInput || !emailInput.readOnly) return; // 新增老師先正常建立，之後編輯即可指定。
+  if(!emailInput || !roleInput || !emailInput.readOnly) return;
 
   const email=normalizedEmail(emailInput.value);
   if(!email) return;
