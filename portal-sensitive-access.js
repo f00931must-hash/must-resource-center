@@ -145,3 +145,4 @@ async function bootstrap(){
 }
 
 bootstrap();
+import("./file-exchange-addon.js?v=0.1.0").catch(err=>console.warn("File exchange module load failed:",err));
