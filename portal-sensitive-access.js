@@ -146,3 +146,4 @@ async function bootstrap(){
 
 bootstrap();
 import("./file-exchange-v2.js?v=0.3.0").catch(err=>console.warn("File exchange module load failed:",err));
+import("./file-exchange-download-fix.js?v=0.3.1").catch(err=>console.warn("File exchange download fix load failed:",err));
