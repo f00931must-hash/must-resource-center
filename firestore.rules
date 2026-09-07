@@ -8,6 +8,15 @@ service cloud.firestore {
     function activeUser() { return meExists() && me().enabled == true; }
     function admin() { return activeUser() && me().role == 'admin'; }
     function rootAdmin() { return activeUser() && email() == 'master004400@gmail.com'; }
+    function myGroupOwner() { return me().role == 'assistant' ? me().ownerEmail : email(); }
+    function sameGroupUser(targetEmail, groupOwner) {
+      return targetEmail == groupOwner || (
+        exists(/databases/$(database)/documents/portalUsers/$(targetEmail))
+        && get(/databases/$(database)/documents/portalUsers/$(targetEmail)).data.enabled == true
+        && get(/databases/$(database)/documents/portalUsers/$(targetEmail)).data.role == 'assistant'
+        && get(/databases/$(database)/documents/portalUsers/$(targetEmail)).data.ownerEmail == groupOwner
+      );
+    }
     function budgetRoleManager() {
       return activeUser() && (
         rootAdmin()
@@ -61,6 +70,15 @@ service cloud.firestore {
     match /systems/{systemId} {
       allow read: if activeUser();
       allow create, update, delete: if rootAdmin();
+    }
+    match /fileExchange/{fileId} {
+      allow read: if activeUser() && resource.data.groupOwnerEmail == myGroupOwner();
+      allow create: if activeUser()
+        && request.resource.data.senderEmail == email()
+        && request.resource.data.groupOwnerEmail == myGroupOwner()
+        && sameGroupUser(request.resource.data.recipientEmail, myGroupOwner());
+      allow update: if false;
+      allow delete: if activeUser() && (resource.data.senderEmail == email() || rootAdmin());
     }
     match /{document=**} { allow read, write: if false; }
   }
