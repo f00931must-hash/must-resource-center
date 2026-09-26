@@ -52,7 +52,8 @@ function normalizedEmail(value){return String(value||"").trim().toLowerCase()}
 function currentEmail(){return normalizedEmail(profile?.email||currentUser?.email)}
 function markSyncNeeded(){setAnnouncementSyncStatus("人員資料已更新，請重新同步","warn");setActivitySyncStatus("人員資料已更新，請重新同步","warn");setServiceSyncStatus("人員資料已更新，請重新同步","warn");setAdministrativeDocumentSyncStatus("人員資料已更新，請重新同步","warn");setCreditCheckerSyncStatus("人員資料已更新，請重新同步","warn")}
 function hasPermission(u,id){const p=u?.permissions||{},a=u?.allowedSystems||[];return permissionAliases(id).some(k=>p[k]===true||a.includes(k))}
-function canUse(s){if(!s.enabled)return false;if(profile.role==="admin")return true;return hasPermission(profile,s.id)||s.type==="shared"&&profile.allShared===true}
+function isBudgetSystem(s){const id=String(s?.id||"").toLowerCase(),name=String(s?.name||s?.title||"");return id.includes("budget")||name.includes("經費管理");}
+function canUse(s){if(!s.enabled)return false;if(profile?.role==="assistant"&&isBudgetSystem(s))return false;if(profile.role==="admin")return true;return hasPermission(profile,s.id)||s.type==="shared"&&profile.allShared===true}
 function renderSystems(){const list=systems.filter(canUse);$("systemCount").textContent=`可使用 ${list.length} 套系統`;$("systemGrid").innerHTML=list.map(s=>`<a class="system-card" href="${esc(s.url)}" target="_blank" rel="noopener" style="--accent:${esc(s.accent||"#3b82f6")};--accent-soft:${esc(s.accentSoft||"#eff6ff")}"><div class="card-top"><div class="icon">${esc(s.icon||"🔗")}</div><span class="status">使用中</span></div><h2>${esc(s.name||s.title||"未命名系統")}</h2><p>${esc(s.description||"")}</p><div class="enter">進入系統 →</div></a>`).join("");$("emptySystems").classList.toggle("hidden",list.length>0)}
 function renderAdmin(){
   if(profile?.role!=="admin")return;
@@ -138,13 +139,13 @@ function renderAssistants(){
   document.querySelectorAll("[data-edit-assistant]").forEach(b=>b.onclick=()=>openAssistantModal(users.find(x=>x.id===b.dataset.editAssistant)));document.querySelectorAll("[data-delete-assistant]").forEach(b=>b.onclick=()=>removeAssistant(users.find(x=>x.id===b.dataset.deleteAssistant)));
 }
 function openAssistantModal(u=null){
-  const allowedIds=myAllowedSystemIds(); const allowedSystems=systems.filter(s=>allowedIds.includes(s.id));
+  const allowedIds=myAllowedSystemIds(); const allowedSystems=systems.filter(s=>allowedIds.includes(s.id)&&!isBudgetSystem(s));
   $("modalTitle").textContent=u?"編輯小幫手":"新增小幫手";
   $("modalForm").innerHTML=`<div class="field"><label>姓名</label><input name="displayName" required value="${esc(u?.displayName||"")}"></div><div class="field"><label>Email</label><input name="email" type="email" required ${u?"readonly":""} value="${esc(u?.email||u?.id||"")}"></div><div class="owner-note">隸屬老師：${esc(profile.displayName||profile.email)}</div><div class="field"><label>可使用的系統</label><div class="system-option-grid">${allowedSystems.map(sys=>`<label class="system-option"><input type="checkbox" name="perm" value="${esc(sys.id)}" ${hasPermission(u,sys.id)?"checked":""}><span class="system-label"><span class="system-icon">${esc(sys.icon||"🔗")}</span><span>${esc(friendlySystemName(sys.id,sys.name))}</span></span></label>`).join("")}</div></div><label class="check-card"><input type="checkbox" name="enabled" ${u?.enabled!==false?"checked":""}> 啟用帳號</label><div class="form-actions"><button type="button" class="btn ghost" id="cancelForm">取消</button><button class="btn primary">儲存</button></div>`;
   $("modalForm").onsubmit=e=>saveAssistant(e,u);$("cancelForm").onclick=closeModal;$("modal").classList.remove("hidden");
 }
 async function saveAssistant(e,u){
-  e.preventDefault();const f=new FormData(e.target),email=normalizedEmail(f.get("email")),perms={},allowed=new Set(myAllowedSystemIds()),owner=currentEmail();f.getAll("perm").forEach(id=>{if(allowed.has(id))perms[id]=true});
+  e.preventDefault();const f=new FormData(e.target),email=normalizedEmail(f.get("email")),perms={},allowed=new Set(systems.filter(s=>myAllowedSystemIds().includes(s.id)&&!isBudgetSystem(s)).map(s=>s.id)),owner=currentEmail();f.getAll("perm").forEach(id=>{if(allowed.has(id))perms[id]=true});
   if(!owner)return toast("找不到目前登入老師的 Email，請登出後重新登入");
   try{await setDoc(doc(db,"portalUsers",email),{displayName:String(f.get("displayName")||"").trim(),email,role:"assistant",ownerEmail:owner,enabled:f.get("enabled")==="on",permissions:perms,updatedAt:serverTimestamp(),...(u?{}:{createdAt:serverTimestamp()})},{merge:true});await loadUsers();renderAssistants();if(profile.role==="admin")renderAdmin();closeModal();markSyncNeeded();toast("協作者資料已儲存")}
   catch(err){toast("儲存失敗："+friendly(err))}
