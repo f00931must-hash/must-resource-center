@@ -24,6 +24,7 @@ let currentUser=null,profile=null,systems=[],users=[],resourceFiles=[];
 const RESOURCE_API="https://must-free-upload-service.f00931-must.workers.dev";
 const $=id=>document.getElementById(id); const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
 const defaultSystems=[
+{id:"resourceInventory",name:"資教物資管理系統",description:"管理租借庫存、借還紀錄與文宣品庫存。",icon:"📦",url:"https://f00931must-hash.github.io/must-resource-inventory-system/",enabled:true,order:7,type:"private",accent:"#0e5276",accentSoft:"#edf5fa"},
 {id:"announcement",name:"資源教室公告欄",description:"查看重要公告、修課通知、獎助學金與活動訊息。",icon:"📢",url:"https://f00931must-hash.github.io/must-resource-platform/",enabled:true,order:1,type:"shared",accent:"#8b5cf6",accentSoft:"#f3e8ff"},
 {id:"activity",name:"資源教室活動報名平台",description:"查看活動資訊、線上報名與填寫活動回饋。",icon:"🎉",url:"https://f00931must-hash.github.io/must-activity-system/frontend/",enabled:true,order:2,type:"shared",accent:"#0ea5e9",accentSoft:"#e0f2fe"},
 {id:"serviceRecord",name:"資源教室服務紀錄系統",description:"管理學生基本資料、服務紀錄、AI 內容潤飾與紀錄表匯出。",icon:"📋",url:"https://f00931must-hash.github.io/must-service-record-system/",enabled:true,order:3,type:"private",accent:"#14b8a6",accentSoft:"#ccfbf1"},
