@@ -139,7 +139,7 @@ async function syncBudgetPermissions(portalDb,portalUser){
     for(const u of permitted){
       const email=normalizedEmail(u.email||u.id);
       const existing=existingMap.get(email);
-      const explicitRole=u.budgetRole==="manager"||u.budgetRole==="user" ? u.budgetRole : "";
+      const explicitRole=["manager","user","advance"].includes(u.budgetRole) ? u.budgetRole : "";
       const role=explicitRole || (existing?.role==="manager" ? "manager" : "user");
       if(role==="manager") managerCount++;
 
@@ -202,7 +202,7 @@ async function injectBudgetRoleEditor(){
   const field=document.createElement("div");
   field.className="field";
   field.dataset.budgetRoleField="1";
-  field.innerHTML=`<label>經費系統角色</label><select name="budgetRole"><option value="user" ${data.budgetRole!=="manager"?"selected":""}>一般使用者</option><option value="manager" ${data.budgetRole==="manager"?"selected":""}>經費管理員</option></select><small style="display:block;margin-top:6px;color:#64748b">只影響經費管理系統；變更後請按「同步經費」套用。</small>`;
+  field.innerHTML=`<label>經費系統角色</label><select name="budgetRole"><option value="user" ${!["manager","advance"].includes(data.budgetRole)?"selected":""}>一般使用者</option><option value="advance" ${data.budgetRole==="advance"?"selected":""}>預支承辦人（限本人）</option><option value="manager" ${data.budgetRole==="manager"?"selected":""}>經費管理員</option></select><small style="display:block;margin-top:6px;color:#64748b">只影響經費管理系統；變更後請按「同步經費」套用。</small>`;
 
   const roleField=roleInput.closest(".field");
   if(roleField?.parentNode) roleField.parentNode.insertBefore(field,roleField.nextSibling);
@@ -261,3 +261,4 @@ async function bootstrapBudgetSystem(){
 }
 
 bootstrapBudgetSystem();
+
