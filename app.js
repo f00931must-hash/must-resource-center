@@ -75,7 +75,7 @@ function openUserModal(u=null){
 }
 async function saveUser(e,u){
   e.preventDefault();const f=new FormData(e.target),email=normalizedEmail(f.get("email")),perms={};f.getAll("perm").forEach(id=>perms[id]=true);
-  try{await setDoc(doc(db,"portalUsers",email),{displayName:String(f.get("displayName")||"").trim(),email,role:String(f.get("role")||"teacher"),enabled:f.get("enabled")==="on",permissions:perms,...(["user","manager"].includes(f.get("budgetRole"))?{budgetRole:f.get("budgetRole"),budgetRoleUpdatedAt:serverTimestamp()}:{}),updatedAt:serverTimestamp(),...(u?{}:{createdAt:serverTimestamp()})},{merge:true});await loadUsers();renderAdmin();renderAssistants();closeModal();markSyncNeeded();toast("老師資料已儲存")}
+  try{await setDoc(doc(db,"portalUsers",email),{displayName:String(f.get("displayName")||"").trim(),email,role:String(f.get("role")||"teacher"),enabled:f.get("enabled")==="on",permissions:perms,...(["user","manager","advance"].includes(f.get("budgetRole"))?{budgetRole:f.get("budgetRole"),budgetRoleUpdatedAt:serverTimestamp()}:{}),updatedAt:serverTimestamp(),...(u?{}:{createdAt:serverTimestamp()})},{merge:true});await loadUsers();renderAdmin();renderAssistants();closeModal();markSyncNeeded();toast("老師資料已儲存")}
   catch(err){toast("儲存失敗："+friendly(err))}
 }
 async function removePortalUser(u){
@@ -215,3 +215,4 @@ async function deleteResource(path){const f=resourceFiles.find(x=>x.path===path)
 
 function closeModal(){$("modal").classList.add("hidden");$("modalForm").innerHTML=""}function toast(msg){$("toast").textContent=msg;$("toast").classList.remove("hidden");clearTimeout(window.__toast);window.__toast=setTimeout(()=>$("toast").classList.add("hidden"),3000)}
 bind();
+
